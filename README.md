@@ -1,28 +1,48 @@
-# 🔨 Auction House
+# 🔨 Auction House monorepo
 
-Đấu giá realtime — host tự tạo vật phẩm, upload ảnh, chọn thời gian, mời bạn bè.
+Dự án đã được tách thành 2 phần rõ ràng:
 
-## ✨ Tính năng
+- Frontend: React + Vite
+- Backend: Express API riêng
 
-- **Tạo & quản lý phòng** — đặt tên, sinh mã 6 ký tự, host token bảo mật
-- **Host tự thêm món** — ảnh (≤5MB), tên, mô tả, giá khởi điểm, thời gian riêng (10–300s)
-- **Preset demo** — 1 click thêm 3 món mẫu để test nhanh
-- **Xóa món** — trước khi bắt đầu, tự xóa ảnh
-- **3 trạng thái** — `setup` → `running` → `finished`
-- **Anti-sniping** — bid trong 5s cuối tự cộng +10s
-- **Host controls** — Skip món, Kết thúc sớm, Xóa phòng
-- **Statistics** — sau khi xong: số món bán, doanh thu, danh sách người thắng
-- **Real-time** — leaderboard, live feed, online count, timer bar
-- **Sound** — beep khi có bid, cảnh báo 10s cuối (bật/tắt được)
-- **Điều hướng** — 🏠 topbar, ESC, đóng overlay, quay về landing
-- **Nhớ host** — localStorage, host quay lại vẫn giữ quyền
-- **Auto cleanup** — xóa phòng + ảnh sau 2h không hoạt động
-- **UI premium** — dark theme, glassmorphism, animation mượt, responsive
-
-## 🚀 Chạy
+## Cấu trúc
 
 ```bash
-git clone https://github.com/<you>/auction-house.git
-cd auction-house
+backend/
+  server.js
+  package.json
+  uploads/
+frontend/
+  src/
+  index.html
+  package.json
+  vite.config.js
+package.json
+README.md
+```
+
+## 🚀 Chạy dự án
+
+```bash
 npm install
-npm start
+npm run dev
+```
+
+- Frontend chạy tại: http://localhost:5173
+- Backend chạy tại: http://localhost:3001
+
+## Build production
+
+```bash
+npm run build
+```
+
+## API cơ bản
+
+- GET /api/health
+- GET /api/rooms
+- POST /api/rooms
+- GET /api/rooms/:id
+- POST /api/rooms/:id/items
+- DELETE /api/rooms/:id/items/:itemId
+- POST /api/rooms/:id/start
