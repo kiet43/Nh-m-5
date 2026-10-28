@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auction House — Đấu giá realtime</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg-0: #050508;
+  --surface: rgba(255,255,255,.04);
+  --surface-2: rgba(255,255,255,.07);
+  --border: rgba(255,255,255,.08);
+  --border-hover: rgba(255,255,255,.18);
+  --text: #f8fafc;
+  --text-dim: #94a3b8;
+  --text-muted: #64748b;
+  --accent: #a855f7;
+  --accent-2: #ec4899;
+  --gold: #fbbf24;
+  --danger: #ef4444;
+  --success: #10b981;
+}
+html, body { height: 100%; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg-0); color: var(--text);
+  overflow-x: hidden; -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+}
+button, input, textarea { font-family: inherit; }
+.screen { min-height: 100vh; }
+
+/* ---------- LANDING ---------- */
+#landing {
+  position: relative; display: flex;
+  align-items: center; justify-content: center;
+  padding: 24px; overflow: hidden;
+}
+.blobs { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.blob { position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.35; will-change: transform; }
+.b1 { width: 500px; height: 500px; background: radial-gradient(circle,#a855f7,transparent 70%); top: -200px; left: -200px; animation: float1 22s ease-in-out infinite; }
+.b2 { width: 600px; height: 600px; background: radial-gradient(circle,#ec4899,transparent 70%); bottom: -250px; right: -200px; animation: float2 28s ease-in-out infinite; }
+.b3 { width: 400px; height: 400px; background: radial-gradient(circle,#3b82f6,transparent 70%); top: 50%; left: 50%; transform: translate(-50%,-50%); animation: float3 20s ease-in-out infinite; }
+@keyframes float1 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(100px,80px) scale(1.15); } }
+@keyframes float2 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-80px,-100px) scale(1.1); } }
+@keyframes float3 { 0%,100% { transform: translate(-50%,-50%) scale(1); } 50% { transform: translate(-40%,-60%) scale(1.2); } }
+.landing-content {
+  position: relative; z-index: 2;
+  max-width: 540px; width: 100%;
+  text-align: center; animation: fadeUp 0.8s ease;
+}
+@keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.brand { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 24px; font-weight: 800; letter-spacing: 0.1em; font-size: 14px; }
+.brand-icon {
+  width: 34px; height: 34px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  display: grid; place-items: center; font-size: 15px;
+  box-shadow: 0 0 30px rgba(168,85,247,.5);
+}
+.brand-text { display: flex; gap: 5px; }
+.brand-text span { color: var(--text-muted); font-weight: 500; }
+.landing-title {
+  font-size: clamp(30px, 5vw, 42px);
+  line-height: 1.1; font-weight: 800;
+  letter-spacing: -0.03em; margin-bottom: 14px;
+}
+.gradient-text {
+  background: linear-gradient(135deg,#a855f7,#ec4899,#f59e0b);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.landing-sub { color: var(--text-dim); font-size: 15px; line-height: 1.6; margin: 0 auto 24px; max-width: 420px; }
+.landing-card {
+  background: rgba(15,15,25,.75);
+  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border); border-radius: 20px;
+  padding: 24px; text-align: left;
+  box-shadow: 0 24px 64px rgba(0,0,0,.6);
+}
+.field { margin-bottom: 14px; }
+.field label {
+  display: block; font-size: 11px; font-weight: 600;
+  color: var(--text-dim); margin-bottom: 8px;
+  text-transform: uppercase; letter-spacing: 0.1em;
+}
+.field input, .field textarea {
+  width: 100%; padding: 13px 16px;
+  font-size: 15px; background: rgba(255,255,255,.03);
+  border: 1px solid var(--border); border-radius: 12px;
+  color: var(--text); transition: all .2s; resize: none;
+}
+.field input:focus, .field textarea:focus {
+  outline: none; border-color: var(--accent);
+  background: rgba(168,85,247,.05);
+  box-shadow: 0 0 0 4px rgba(168,85,247,.1);
+}
+.room-input-group { display: flex; gap: 8px; }
+.room-input-group input { flex: 1; }
+.dice-btn {
+  width: 48px; background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: 12px;
+  cursor: pointer; font-size: 18px;
+  transition: all .2s; flex-shrink: 0; color: var(--text);
+}
+.dice-btn:hover { background: var(--surface); border-color: var(--border-hover); }
+.tabs {
+  display: flex; gap: 4px; padding: 4px;
+  background: rgba(255,255,255,.03);
+  border-radius: 12px; margin-bottom: 18px;
+  border: 1px solid var(--border);
+}
+.tab {
+  flex: 1; padding: 10px 12px;
+  background: transparent; border: none; border-radius: 8px;
+  color: var(--text-dim); font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all .2s;
+}
+.tab:hover { color: var(--text); }
+.tab.active {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: white; box-shadow: 0 4px 12px rgba(168,85,247,.3);
+}
+.btn-primary {
+  width: 100%; padding: 15px 24px;
+  font-size: 15px; font-weight: 700; color: white;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border: none; border-radius: 12px; cursor: pointer;
+  transition: all .2s;
+  box-shadow: 0 8px 24px rgba(168,85,247,.4);
+  letter-spacing: 0.02em;
+}
+.btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 32px rgba(168,85,247,.6); }
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+.btn-secondary {
+  width: 100%; padding: 12px 20px;
+  font-size: 14px; font-weight: 700; color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border-hover); border-radius: 12px;
+  cursor: pointer; transition: all .2s;
+}
+.btn-secondary:hover { background: var(--surface); }
+.btn-danger {
+  width: 100%; padding: 12px 20px;
+  font-size: 14px; font-weight: 700;
+  color: var(--danger);
+  background: rgba(239,68,68,.08);
+  border: 1px solid rgba(239,68,68,.3);
+  border-radius: 12px; cursor: pointer; transition: all .2s;
+}
+.btn-danger:hover { background: rgba(239,68,68,.15); }
+.landing-footer { margin-top: 20px; color: var(--text-muted); font-size: 12px; }
+
+.rooms-header { display: flex; justify-content: space-between; align-items: center; margin: 16px 0 10px; padding: 0 2px; }
+.rooms-header span { font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; }
+.refresh-btn {
+  width: 28px; height: 28px;
+  background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text-dim); cursor: pointer;
+  font-size: 14px; transition: all .2s;
+}
+.refresh-btn:hover { color: var(--text); border-color: var(--border-hover); }
+.refresh-btn.spinning { animation: spin .6s linear; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.rooms-list { list-style: none; display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; padding-right: 4px; }
+.rooms-list::-webkit-scrollbar { width: 4px; }
+.rooms-list::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 2px; }
+.room-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px; background: rgba(255,255,255,.02);
+  border: 1px solid var(--border); border-radius: 10px;
+  cursor: pointer; transition: all .2s;
+}
+.room-item:hover { background: rgba(168,85,247,.08); border-color: rgba(168,85,247,.3); transform: translateX(2px); }
+.room-item-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: linear-gradient(135deg, rgba(168,85,247,.2), rgba(236,72,153,.2));
+  display: grid; place-items: center; font-size: 16px; flex-shrink: 0;
+}
+.room-item-body { flex: 1; min-width: 0; }
+.room-item-title { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px; }
+.room-item-meta { font-size: 11px; color: var(--text-muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.room-item-meta .status-live-badge {
+  color: var(--danger); font-weight: 700;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.room-item-meta .status-live-badge::before {
+  content: ''; width: 5px; height: 5px;
+  background: var(--danger); border-radius: 50%;
+  animation: pulseDot 1.5s ease-in-out infinite;
+  box-shadow: 0 0 6px var(--danger);
+}
+.room-item-online { font-size: 12px; color: var(--success); font-weight: 600; flex-shrink: 0; }
+.rooms-empty { text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0; font-style: italic; }
+
+/* ---------- ROOM ---------- */
+#room {
+  display: flex; flex-direction: column;
+  background:
+    radial-gradient(circle at 15% -10%, rgba(168,85,247,.12), transparent 40%),
+    radial-gradient(circle at 85% 110%, rgba(236,72,153,.10), transparent 40%),
+    var(--bg-0);
+}
+.topbar {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; padding: 14px 24px;
+  background: rgba(5,5,8,.7);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+.topbar-brand { display: flex; align-items: center; gap: 8px; font-weight: 800; letter-spacing: 0.08em; font-size: 13px; }
+.topbar-brand::before {
+  content: '◆'; display: grid; place-items: center;
+  width: 28px; height: 28px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  font-size: 12px; box-shadow: 0 0 20px rgba(168,85,247,.5);
+}
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+.room-chip, .online-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 14px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 13px; font-weight: 500; color: var(--text-dim);
+  max-width: 220px;
+}
+.room-chip { color: var(--text); font-weight: 600; overflow: hidden; }
+.room-chip span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); flex-shrink: 0; }
+.online-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--success); box-shadow: 0 0 8px var(--success);
+  animation: pulseDot 2s ease-in-out infinite;
+}
+@keyframes pulseDot { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+.icon-btn {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: var(--surface); border: 1px solid var(--border);
+  cursor: pointer; font-size: 15px; transition: all .2s;
+  color: var(--text);
+}
+.icon-btn:hover { background: var(--surface-2); border-color: var(--border-hover); }
+
+.room-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 24px; max-width: 1240px; width: 100%;
+  margin: 0 auto; padding: 24px;
+}
+@media (max-width: 900px) {
+  .room-grid { grid-template-columns: 1fr; padding: 16px; gap: 16px; }
+  .topbar { padding: 12px 16px; }
+  .room-chip, .online-chip { padding: 6px 10px; font-size: 12px; }
+  .topbar-brand { font-size: 12px; }
+}
+
+.product-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px; overflow: hidden;
+  animation: fadeUp .6s ease;
+}
+.product-hero {
+  position: relative; height: 300px;
+  display: grid; place-items: center;
+  overflow: hidden; isolation: isolate;
+  background: var(--product-gradient, linear-gradient(135deg, #667eea, #764ba2));
+}
+.product-hero::after {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 25% 20%, rgba(255,255,255,.15), transparent 55%);
+  pointer-events: none; z-index: 2;
+}
+.product-img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; z-index: 1;
+}
+.product-badge {
+  position: absolute; top: 16px; left: 16px;
+  padding: 6px 12px;
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(10px);
+  border-radius: 999px;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.05em;
+  color: white; z-index: 3;
+}
+.product-emoji {
+  font-size: 130px;
+  filter: drop-shadow(0 20px 40px rgba(0,0,0,.35));
+  animation: floatEmoji 4s ease-in-out infinite;
+  z-index: 1;
+}
+@keyframes floatEmoji {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-12px) rotate(2deg); }
+}
+.timer-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 5px; background: rgba(0,0,0,.4); z-index: 3; }
+.timer-fill {
+  height: 100%; width: 100%;
+  background: linear-gradient(90deg, #22c55e, #84cc16);
+  transition: width .3s linear, background .3s;
+}
+.timer-fill.urgent { background: linear-gradient(90deg, #ef4444, #f97316); animation: pulseBar 1s ease-in-out infinite; }
+@keyframes pulseBar { 0%, 100% { opacity: 1; } 50% { opacity: .6; } }
+
+.product-info { padding: 24px; }
+.product-status { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.status-live {
+  font-size: 11px; font-weight: 800; letter-spacing: 0.15em;
+  color: var(--danger); display: inline-flex; align-items: center; gap: 6px;
+}
+.status-live::before {
+  content: ''; width: 6px; height: 6px;
+  background: var(--danger); border-radius: 50%;
+  animation: pulseDot 1.5s ease-in-out infinite;
+  box-shadow: 0 0 8px var(--danger);
+}
+.timer-text { font-size: 13px; color: var(--text-dim); }
+.timer-text b { color: var(--text); font-size: 15px; }
+.product-name { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 6px; line-height: 1.2; }
+.product-tagline { color: var(--text-dim); font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+.price-block {
+  padding: 20px;
+  background: rgba(168,85,247,.05);
+  border: 1px solid rgba(168,85,247,.15);
+  border-radius: 14px; margin-bottom: 20px;
+}
+.price-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); margin-bottom: 6px; font-weight: 600; }
+.price-value { font-size: 38px; font-weight: 900; letter-spacing: -0.03em; line-height: 1; transition: color .2s; will-change: transform; }
+.price-value.flash { animation: priceFlash .45s cubic-bezier(.34,1.56,.64,1); }
+@keyframes priceFlash {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); color: var(--accent); }
+  100% { transform: scale(1); }
+}
+.highest-bidder { margin-top: 10px; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-dim); }
+.highest-bidder span:last-child { color: var(--gold); font-weight: 600; }
+.crown { font-size: 16px; }
+.bid-count-tag { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+.bid-form { display: flex; flex-direction: column; gap: 10px; }
+.bid-input-group {
+  display: flex; align-items: center; padding: 0 16px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 12px; transition: all .2s;
+}
+.bid-input-group:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(168,85,247,.1); }
+.bid-input-group .currency { color: var(--text-muted); font-weight: 700; margin-right: 8px; }
+.bid-input-group input { flex: 1; background: none; border: none; padding: 14px 0; font-size: 17px; font-weight: 600; color: var(--text); }
+.bid-input-group input:focus { outline: none; }
+input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }
+.quick-bids { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.quick-btn {
+  padding: 10px 6px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text-dim);
+  font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all .2s;
+}
+.quick-btn:hover { background: var(--surface); color: var(--text); border-color: var(--border-hover); }
+.btn-bid {
+  width: 100%; padding: 16px;
+  font-size: 14px; font-weight: 800; letter-spacing: 0.1em;
+  color: white;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border: none; border-radius: 12px; cursor: pointer;
+  transition: all .2s;
+  box-shadow: 0 8px 24px rgba(168,85,247,.4);
+  margin-top: 4px;
+}
+.btn-bid:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 32px rgba(168,85,247,.55); }
+.btn-bid:disabled { background: var(--surface-2); color: var(--text-muted); box-shadow: none; cursor: not-allowed; }
+.bid-message { min-height: 20px; font-size: 13px; text-align: center; color: var(--text-dim); }
+.bid-message.error { color: var(--danger); }
+
+.side-panel { display: flex; flex-direction: column; gap: 16px; }
+.side-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; padding: 20px;
+  animation: fadeUp .7s ease;
+}
+.side-title { font-size: 13px; font-weight: 700; letter-spacing: 0.05em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.leaderboard { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.leaderboard li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; font-size: 14px; animation: fadeIn .3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.leaderboard li:nth-child(1) { background: rgba(251,191,36,.1); }
+.leaderboard li:nth-child(2) { background: rgba(203,213,225,.06); }
+.leaderboard li:nth-child(3) { background: rgba(245,158,11,.06); }
+.medal { width: 24px; text-align: center; font-size: 14px; flex-shrink: 0; }
+.avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 11px; font-weight: 800; color: white; flex-shrink: 0;
+}
+.bidder-name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bidder-amount { color: var(--accent); font-weight: 700; font-size: 13px; }
+.empty-state { text-align: center; color: var(--text-muted); font-size: 13px; padding: 16px 0; font-style: italic; }
+.feed { list-style: none; display: flex; flex-direction: column; gap: 4px; max-height: 320px; overflow-y: auto; }
+.feed::-webkit-scrollbar { width: 4px; }
+.feed::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 2px; }
+.feed li { display: flex; align-items: center; gap: 10px; padding: 8px 4px; font-size: 13px; border-bottom: 1px solid var(--border); }
+.feed li:last-child { border-bottom: none; }
+.feed li.new { animation: slideIn .4s ease; }
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(20px); background: rgba(168,85,247,.15); }
+  to { opacity: 1; transform: translateX(0); background: transparent; }
+}
+.feed .avatar { width: 24px; height: 24px; font-size: 10px; }
+.feed .name { flex: 1; color: var(--text-dim); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feed .amt { color: var(--accent); font-weight: 700; font-size: 12px; }
+.feed .time { color: var(--text-muted); font-size: 11px; }
+
+.setup-panel {
+  grid-column: 1 / -1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 24px;
+  animation: fadeUp .6s ease;
+}
+.setup-header { margin-bottom: 20px; }
+.setup-header h2 { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 6px; }
+.setup-header p { color: var(--text-dim); font-size: 14px; }
+.setup-actions { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+.setup-actions button { flex: 1; min-width: 160px; }
+
+.item-form {
+  background: rgba(168,85,247,.04);
+  border: 1px solid rgba(168,85,247,.15);
+  border-radius: 14px; padding: 18px; margin-bottom: 20px;
+}
+.item-form .field { margin-bottom: 12px; }
+.item-form .field:last-of-type { margin-bottom: 14px; }
+.form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 600px) { .form-row-2 { grid-template-columns: 1fr; } }
+.file-label {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px;
+  background: rgba(255,255,255,.03);
+  border: 1px dashed var(--border-hover);
+  border-radius: 12px;
+  cursor: pointer; font-size: 14px; color: var(--text-dim);
+  transition: all .2s;
+}
+.file-label:hover { background: rgba(168,85,247,.06); border-color: var(--accent); color: var(--text); }
+.file-label.has-file { border-style: solid; color: var(--text); }
+.image-preview { max-width: 100%; max-height: 180px; border-radius: 10px; margin-top: 10px; object-fit: cover; }
+.setup-items { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+.setup-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px;
+  background: rgba(255,255,255,.02);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: all .2s;
+}
+.setup-item:hover { background: rgba(255,255,255,.04); }
+.setup-item-thumb {
+  width: 56px; height: 56px; border-radius: 10px;
+  flex-shrink: 0; overflow: hidden;
+  display: grid; place-items: center;
+  font-size: 26px;
+  background: var(--product-gradient, linear-gradient(135deg, #667eea, #764ba2));
+}
+.setup-item-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.setup-item-body { flex: 1; min-width: 0; }
+.setup-item-name { font-size: 15px; font-weight: 700; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.setup-item-meta { font-size: 12px; color: var(--text-dim); display: flex; gap: 10px; flex-wrap: wrap; }
+.setup-item-meta b { color: var(--accent); }
+.setup-item-remove {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.3);
+  color: var(--danger); cursor: pointer; font-size: 14px;
+  transition: all .2s; flex-shrink: 0;
+}
+.setup-item-remove:hover { background: rgba(239,68,68,.2); }
+.setup-empty { text-align: center; padding: 30px 20px; color: var(--text-muted); font-size: 14px; border: 1px dashed var(--border); border-radius: 12px; font-style: italic; }
+
+/* Stats */
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+.stat-box {
+  background: rgba(168,85,247,.06);
+  border: 1px solid rgba(168,85,247,.15);
+  border-radius: 12px; padding: 14px; text-align: center;
+}
+.stat-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; font-weight: 600; }
+.stat-value { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+.sold-list { list-style: none; display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; margin-bottom: 18px; }
+.sold-list::-webkit-scrollbar { width: 4px; }
+.sold-list::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 2px; }
+.sold-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; background: rgba(255,255,255,.02);
+  border-radius: 8px; font-size: 13px;
+}
+.sold-item-thumb {
+  width: 32px; height: 32px; border-radius: 6px;
+  background: linear-gradient(135deg, #a855f7, #ec4899);
+  display: grid; place-items: center; font-size: 16px;
+  overflow: hidden; flex-shrink: 0;
+}
+.sold-item-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.sold-item-body { flex: 1; min-width: 0; }
+.sold-item-name { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sold-item-winner { font-size: 11px; color: var(--text-dim); }
+.sold-item-price { color: var(--gold); font-weight: 700; font-size: 13px; }
+
+/* Overlays */
+.winner-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  display: grid; place-items: center;
+  background: rgba(5,5,8,.85);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  padding: 24px; animation: fadeIn .4s ease;
+  overflow-y: auto;
+}
+.winner-card {
+  max-width: 460px; width: 100%;
+  background: linear-gradient(180deg, rgba(168,85,247,.1), rgba(236,72,153,.05));
+  border: 1px solid rgba(168,85,247,.25);
+  border-radius: 24px; padding: 32px;
+  text-align: center;
+  box-shadow: 0 24px 80px rgba(168,85,247,.3);
+  animation: popIn .5s cubic-bezier(.34,1.56,.64,1);
+  max-height: 90vh; overflow-y: auto;
+}
+@keyframes popIn { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: scale(1); } }
+.winner-img { width: 100px; height: 100px; border-radius: 16px; object-fit: cover; margin: 0 auto 16px; display: block; }
+.winner-title { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-dim); margin-bottom: 12px; }
+.winner-item-name { font-size: 20px; font-weight: 700; margin-bottom: 24px; }
+.winner-price {
+  font-size: 40px; font-weight: 900; letter-spacing: -0.03em;
+  background: linear-gradient(135deg,#fbbf24,#f59e0b);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 6px;
+}
+.winner-name { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+.winner-sub { font-size: 13px; color: var(--text-dim); }
+.winner-actions { display: flex; gap: 10px; margin-top: 18px; }
+.winner-actions button { flex: 1; }
+
+.toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translate(-50%, 100px);
+  background: rgba(15,15,25,.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-hover);
+  border-radius: 12px; padding: 12px 20px;
+  font-size: 14px; font-weight: 500;
+  z-index: 200; transition: transform .3s ease;
+  box-shadow: 0 12px 32px rgba(0,0,0,.4);
+  pointer-events: none; max-width: 90vw;
+}
+.toast.show { transform: translate(-50%, 0); }
+
+.host-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; font-size: 10px; font-weight: 800;
+  background: rgba(251,191,36,.15);
+  color: var(--gold);
+  border-radius: 999px;
+  letter-spacing: 0.08em;
+  margin-left: 6px;
+}
+</style>
+</head>
+<body>
+
+<!-- ============ LANDING ============ -->
+<div id="landing" class="screen">
+  <div class="blobs">
+    <div class="blob b1"></div>
+    <div class="blob b2"></div>
+    <div class="blob b3"></div>
+  </div>
+  <div class="landing-content">
+    <div class="brand">
+      <div class="brand-icon">◆</div>
+      <div class="brand-text">AUCTION <span>HOUSE</span></div>
+    </div>
+    <h1 class="landing-title">
+      Tự tạo phòng đấu giá<br>
+      <span class="gradient-text">với món đồ của riêng bạn</span>
+    </h1>
+    <p class="landing-sub">Upload ảnh, đặt giá khởi điểm, chọn thời gian — rồi mời bạn bè vào trả giá realtime.</p>
+    <div class="landing-card">
+      <div class="field">
+        <label>Tên của bạn</label>
+        <input id="inputName" placeholder="VD: Alex" maxlength="30" autocomplete="off" />
+      </div>
+      <div class="tabs">
+        <button class="tab active" data-tab="create">Tạo phòng mới</button>
+        <button class="tab" data-tab="join">Tham gia phòng</button>
+      </div>
+      <div id="tabCreate">
+        <div class="field">
+          <label>Tên phòng đấu giá</label>
+          <input id="inputTitle" placeholder="VD: Đấu giá đồ cổ tối nay" maxlength="50" autocomplete="off" />
+        </div>
+        <button id="btnCreate" class="btn-primary">Tạo phòng →</button>
+      </div>
+      <div id="tabJoin" style="display:none">
+        <div class="field">
+          <label>Nhập mã phòng</label>
+          <div class="room-input-group">
+            <input id="inputRoom" placeholder="VD: a1b2c3" maxlength="30" autocomplete="off" />
+            <button id="btnJoinCode" class="dice-btn" title="Vào phòng">→</button>
+          </div>
+        </div>
+        <div class="rooms-header">
+          <span>Phòng đang mở</span>
+          <button id="btnRefresh" class="refresh-btn" title="Làm mới">↻</button>
+        </div>
+        <ul class="rooms-list" id="roomsList"><li class="rooms-empty">Đang tải...</li></ul>
+      </div>
+    </div>
+    <div class="landing-footer">Built with WebSocket · MIT License</div>
+  </div>
+</div>
+
+<!-- ============ ROOM ============ -->
+<div id="room" class="screen" style="display:none">
+  <header class="topbar">
+    <div class="topbar-brand">AUCTION HOUSE</div>
+    <div class="topbar-right">
+      <button id="btnSound" class="icon-btn" title="Bật/tắt âm thanh">🔊</button>
+      <button id="btnHome" class="icon-btn" title="Về trang chủ">🏠</button>
+      <div class="room-chip">
+        <span class="dot"></span>
+        <span id="roomName">—</span>
+      </div>
+      <button id="btnShare" class="icon-btn" title="Copy link phòng">🔗</button>
+      <div class="online-chip">
+        <span class="online-dot"></span>
+        <span id="onlineCount">0</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="room-grid">
+    <!-- SETUP -->
+    <section class="setup-panel" id="setupPanel" style="display:none">
+      <div class="setup-header">
+        <h2 id="setupTitle">⚙️ Chuẩn bị đấu giá</h2>
+        <p id="setupHint"></p>
+      </div>
+
+      <div class="setup-actions" id="setupActions" style="display:none">
+        <button id="btnPreset" class="btn-secondary">🎲 Thêm 3 món mẫu</button>
+        <button id="btnDeleteRoom" class="btn-danger">🗑 Xóa phòng</button>
+      </div>
+
+      <form class="item-form" id="itemForm" style="display:none">
+        <div class="field">
+          <input name="name" placeholder="Tên món *" maxlength="100" required />
+        </div>
+        <div class="field">
+          <textarea name="tagline" placeholder="Mô tả ngắn (tùy chọn)" maxlength="200" rows="2"></textarea>
+        </div>
+        <div class="form-row-2">
+          <div class="field">
+            <input name="startPrice" type="number" placeholder="Giá khởi điểm (VNĐ) *" min="0" step="1000" required />
+          </div>
+          <div class="field">
+            <input name="duration" type="number" placeholder="Thời gian (giây)" min="10" max="300" value="60" required />
+          </div>
+        </div>
+        <div class="field">
+          <label class="file-label" id="fileLabel">
+            <span id="fileName">📷 Chọn ảnh (tối đa 5MB)</span>
+            <input type="file" name="image" accept="image/*" id="itemImage" style="display:none" />
+          </label>
+          <img id="itemImagePreview" class="image-preview" style="display:none" alt="" />
+        </div>
+        <button type="submit" class="btn-secondary" id="btnAddItem">+ Thêm món</button>
+      </form>
+
+      <div class="setup-items" id="setupItems">
+        <div class="setup-empty" id="setupEmpty">Chưa có món nào được thêm</div>
+      </div>
+
+      <button id="btnStartAuction" class="btn-primary" style="display:none" disabled>
+        🚀 Bắt đầu đấu giá
+      </button>
+    </section>
+
+    <!-- AUCTION -->
+    <section class="product-panel" id="auctionPanel" style="display:none">
+      <div class="product-hero" id="productHero">
+        <div class="product-badge" id="itemBadge">— / —</div>
+        <img class="product-img" id="productImg" style="display:none" alt="" />
+        <div class="product-emoji" id="productEmoji">📦</div>
+        <div class="timer-bar"><div class="timer-fill" id="timerFill"></div></div>
+      </div>
+      <div class="product-info">
+        <div class="product-status">
+          <span class="status-live" id="statusLive">LIVE</span>
+          <span class="timer-text">⏱ <b id="timer">—</b>s</span>
+        </div>
+        <h2 class="product-name" id="itemName">Đang tải...</h2>
+        <p class="product-tagline" id="itemTagline"></p>
+        <div class="price-block">
+          <div class="price-label">Giá hiện tại</div>
+          <div class="price-value" id="price">—</div>
+          <div class="highest-bidder">
+            <span class="crown">👑</span>
+            <span id="highestBidder">Chưa có ai đặt giá</span>
+          </div>
+          <div class="bid-count-tag" id="bidCountTag"></div>
+        </div>
+        <div class="bid-form">
+          <div class="bid-input-group">
+            <span class="currency">₫</span>
+            <input id="amount" type="number" placeholder="Nhập giá của bạn" min="0" step="1000" />
+          </div>
+          <div class="quick-bids">
+            <button class="quick-btn" data-inc="10000">+10K</button>
+            <button class="quick-btn" data-inc="50000">+50K</button>
+            <button class="quick-btn" data-inc="100000">+100K</button>
+            <button class="quick-btn" data-inc="500000">+500K</button>
+          </div>
+          <button id="btnBid" class="btn-bid">ĐẶT GIÁ</button>
+          <div class="bid-message" id="bidMessage"></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side-panel" id="sidePanel" style="display:none">
+      <div class="side-card" id="hostControls" style="display:none">
+        <h3 class="side-title">⚙️ Điều khiển host</h3>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button id="btnSkipItem" class="btn-secondary">⏭ Bỏ qua món này</button>
+          <button id="btnEndAuction" class="btn-secondary">🛑 Kết thúc sớm</button>
+          <button id="btnDeleteRoom2" class="btn-danger">🗑 Xóa phòng</button>
+        </div>
+      </div>
+      <div class="side-card">
+        <h3 class="side-title">👥 Bảng xếp hạng</h3>
+        <ul class="leaderboard" id="leaderboard"><li class="empty-state">Chưa có ai đặt giá</li></ul>
+      </div>
+      <div class="side-card">
+        <h3 class="side-title">⚡ Diễn biến trực tiếp</h3>
+        <ul class="feed" id="feed"><li class="empty-state">Chưa có hoạt động</li></ul>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<!-- WINNER -->
+<div class="winner-overlay" id="winnerOverlay" style="display:none">
+  <div class="winner-card">
+    <img class="winner-img" id="winnerImg" style="display:none" alt="" />
+    <div class="winner-emoji" id="winnerEmoji">🏆</div>
+    <div class="winner-title">Kết thúc phiên</div>
+    <div class="winner-item-name" id="winnerItemName">—</div>
+    <div class="winner-price" id="winnerPrice">—</div>
+    <div class="winner-name" id="winnerName">—</div>
+    <div class="winner-sub" id="winnerSub">Món tiếp theo sau vài giây...</div>
+    <div class="winner-actions">
+      <button id="btnCloseWinner" class="btn-secondary">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<!-- FINISHED / STATS -->
+<div class="winner-overlay" id="finishedOverlay" style="display:none">
+  <div class="winner-card">
+    <div class="winner-emoji" style="font-size:64px">🎉</div>
+    <div class="winner-title">Hoàn tất đấu giá</div>
+    <div class="winner-item-name">Cảm ơn mọi người đã tham gia!</div>
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="stat-label">Món đã bán</div>
+        <div class="stat-value" id="statSold">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Tổng doanh thu</div>
+        <div class="stat-value" id="statRevenue">0₫</div>
+      </div>
+    </div>
+    <ul class="sold-list" id="soldList"></ul>
+    <div class="winner-actions">
+      <button id="btnFinishedHome" class="btn-secondary">🏠 Trang chủ</button>
+      <button id="btnFinishedNew" class="btn-primary">+ Tạo phòng mới</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = n => Number(n).toLocaleString('vi-VN') + '₫';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function avatarColor(name) {
+  const p = ['#ef4444','#f97316','#eab308','#22c55e','#14b8a6','#3b82f6','#8b5cf6','#ec4899','#06b6d4','#84cc16'];
+  let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+  return p[Math.abs(h) % p.length];
+}
+function initials(name) {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+function avatarHTML(name) {
+  return `<div class="avatar" style="background:${avatarColor(name)}">${esc(initials(name))}</div>`;
+}
+function showToast(text) {
+  const t = $('toast');
+  t.textContent = text;
+  t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+function timeAgo(ts) {
+  const d = Math.floor((Date.now() - ts) / 1000);
+  if (d < 60) return 'vừa xong';
+  if (d < 3600) return `${Math.floor(d / 60)} phút trước`;
+  if (d < 86400) return `${Math.floor(d / 3600)} giờ trước`;
+  return `${Math.floor(d / 86400)} ngày trước`;
+}
+
+// ---------- Sound ----------
+let soundOn = localStorage.getItem('auction.sound') !== 'off';
+function updateSoundBtn() { $('btnSound').textContent = soundOn ? '🔊' : '🔇'; }
+function beep(freq = 800, dur = 100, type = 'sine') {
+  if (!soundOn) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    osc.connect(gain); gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur / 1000);
+    osc.start(); osc.stop(ctx.currentTime + dur / 1000);
+  } catch {}
+}
+$('btnSound').onclick = () => {
+  soundOn = !soundOn;
+  localStorage.setItem('auction.sound', soundOn ? 'on' : 'off');
+  updateSoundBtn();
+  showToast(soundOn ? '🔊 Âm thanh bật' : '🔇 Âm thanh tắt');
+};
+updateSoundBtn();
+
+// ---------- State ----------
+const S = {
+  ws: null, room: '', name: '', hostToken: '', isHost: false,
+  status: 'setup', endsAt: 0, duration: 0, lastBidId: null, ticker: null,
+  lastWarnTick: -1, currentTab: 'create', addingItem: false,
+};
+
+// ---------- Tabs ----------
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.onclick = () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    S.currentTab = tab.dataset.tab;
+    $('tabCreate').style.display = S.currentTab === 'create' ? '' : 'none';
+    $('tabJoin').style.display = S.currentTab === 'join' ? '' : 'none';
+    if (S.currentTab === 'join') loadRooms();
+  };
+});
+
+// ---------- Create ----------
+$('btnCreate').onclick = async () => {
+  const name = $('inputName').value.trim();
+  const title = $('inputTitle').value.trim();
+  if (!name) return $('inputName').focus();
+  if (!title) return $('inputTitle').focus();
+
+  const btn = $('btnCreate');
+  btn.disabled = true; btn.textContent = 'Đang tạo...';
+  try {
+    const r = await fetch('/api/rooms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, host: name }),
+    });
+    if (!r.ok) throw new Error((await r.json()).error || 'Lỗi tạo phòng');
+    const { id, hostToken } = await r.json();
+    localStorage.setItem('auction.name', name);
+    localStorage.setItem(`auction.host.${id}`, hostToken);
+    history.replaceState(null, '', `?room=${id}&host=${hostToken}`);
+    joinRoom(name, id, hostToken);
+    showToast(`✓ Đã tạo phòng "${title}"`);
+  } catch (err) {
+    showToast('⚠ ' + err.message);
+    btn.disabled = false; btn.textContent = 'Tạo phòng →';
+  }
+};
+
+$('inputName').addEventListener('keydown', e => {
+  if (e.key === 'Enter') S.currentTab === 'create' ? $('btnCreate').click() : $('btnJoinCode').click();
+});
+$('inputTitle').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnCreate').click(); });
+$('inputRoom').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnJoinCode').click(); });
+
+// ---------- Join ----------
+$('btnJoinCode').onclick = () => {
+  const name = $('inputName').value.trim();
+  const code = $('inputRoom').value.trim();
+  if (!name) return $('inputName').focus();
+  if (!code) return $('inputRoom').focus();
+  const savedHost = localStorage.getItem(`auction.host.${code}`) || '';
+  localStorage.setItem('auction.name', name);
+  const qs = savedHost ? `?room=${code}&host=${savedHost}` : `?room=${code}`;
+  history.replaceState(null, '', qs);
+  joinRoom(name, code, savedHost);
+};
+
+async function loadRooms() {
+  const ul = $('roomsList');
+  try {
+    const r = await fetch('/api/rooms');
+    const list = await r.json();
+    if (!list.length) {
+      ul.innerHTML = '<li class="rooms-empty">Chưa có phòng nào. Hãy tạo phòng đầu tiên!</li>';
+      return;
+    }
+    ul.innerHTML = list.map(room => {
+      const icon = room.status === 'live' ? '🔴'
+                 : room.status === 'ended' ? '✅'
+                 : room.status === 'setup' ? '⚙️' : '⏳';
+      let status;
+      if (room.status === 'live') status = `<span class="status-live-badge">LIVE</span>`;
+      else if (room.status === 'setup') status = `Đang chuẩn bị (${room.totalItems} món)`;
+      else if (room.status === 'ended') status = 'Đã kết thúc';
+      else status = `Chờ món ${room.itemIndex}/${room.totalItems}`;
+      return `
+        <li class="room-item" data-id="${room.id}">
+          <div class="room-item-icon">${icon}</div>
+          <div class="room-item-body">
+            <div class="room-item-title">${esc(room.title)}</div>
+            <div class="room-item-meta">
+              <span>👤 ${esc(room.host)}</span>
+              ${status}
+              <span>· ${timeAgo(room.createdAt)}</span>
+            </div>
+          </div>
+          <div class="room-item-online">${room.online} 👥</div>
+        </li>`;
+    }).join('');
+    ul.querySelectorAll('.room-item').forEach(el => {
+      el.onclick = () => {
+        const name = $('inputName').value.trim();
+        if (!name) { $('inputName').focus(); showToast('Nhập tên trước đã'); return; }
+        const id = el.dataset.id;
+        const savedHost = localStorage.getItem(`auction.host.${id}`) || '';
+        localStorage.setItem('auction.name', name);
+        const qs = savedHost ? `?room=${id}&host=${savedHost}` : `?room=${id}`;
+        history.replaceState(null, '', qs);
+        joinRoom(name, id, savedHost);
+      };
+    });
+  } catch {
+    ul.innerHTML = '<li class="rooms-empty">Không tải được danh sách</li>';
+  }
+}
+
+$('btnRefresh').onclick = () => {
+  const b = $('btnRefresh');
+  b.classList.add('spinning');
+  loadRooms().finally(() => setTimeout(() => b.classList.remove('spinning'), 600));
+};
+
+setInterval(() => {
+  if (S.currentTab === 'join' && $('landing').style.display !== 'none') loadRooms();
+}, 4000);
+
+// ---------- Navigation ----------
+function goHome() {
+  if (S.ws) { try { S.ws.close(); } catch {} S.ws = null; }
+  clearInterval(S.ticker);
+  S.endsAt = 0; S.lastBidId = null; S.status = 'setup';
+  // Giữ hostToken trong localStorage, không xóa
+  history.replaceState(null, '', '/');
+  hideWinner();
+  $('finishedOverlay').style.display = 'none';
+  $('room').style.display = 'none';
+  $('landing').style.display = 'flex';
+  $('roomName').textContent = '—';
+  $('onlineCount').textContent = '0';
+  $('productImg').style.display = 'none';
+  $('productEmoji').style.display = 'block';
+  $('setupPanel').style.display = 'none';
+  $('auctionPanel').style.display = 'none';
+  $('sidePanel').style.display = 'none';
+  $('hostControls').style.display = 'none';
+  document.title = 'Auction House — Đấu giá realtime';
+  if (S.name) $('inputName').value = S.name;
+  $('inputName').focus();
+  loadRooms();
+}
+
+$('btnHome').onclick = () => {
+  if (S.status === 'running' && !confirm('Rời phòng đang đấu giá?')) return;
+  goHome();
+};
+$('btnCloseWinner').onclick = () => hideWinner();
+$('btnFinishedHome').onclick = () => goHome();
+$('btnFinishedNew').onclick = () => {
+  goHome();
+  document.querySelector('.tab[data-tab="create"]').click();
+  $('inputTitle').value = '';
+  $('inputTitle').focus();
+};
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if ($('winnerOverlay').style.display === 'grid') { hideWinner(); return; }
+  if ($('finishedOverlay').style.display === 'grid') { goHome(); return; }
+});
+
+// ---------- Join room ----------
+function joinRoom(name, room, hostToken) {
+  S.name = name; S.room = room; S.hostToken = hostToken || '';
+  S.isHost = !!S.hostToken;
+  $('landing').style.display = 'none';
+  $('room').style.display = 'flex';
+  connect();
+}
+
+function connect() {
+  if (S.ws) { try { S.ws.close(); } catch {} }
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const qs = new URLSearchParams({ room: S.room });
+  if (S.hostToken) qs.set('host', S.hostToken);
+  const ws = new WebSocket(`${proto}://${location.host}/?${qs}`);
+  S.ws = ws;
+
+  ws.onmessage = e => {
+    let m; try { m = JSON.parse(e.data); } catch { return; }
+    handleMessage(m);
+  };
+  ws.onclose = () => {
+    if (S.status === 'running') setBidMsg('Mất kết nối, đang thử lại...', 'error');
+    setTimeout(() => { if ($('room').style.display !== 'none') connect(); }, 1500);
+  };
+  ws.onerror = () => {};
+}
+
+function handleMessage(m) {
+  if (m.online !== undefined) $('onlineCount').textContent = m.online;
+
+  if (m.type === 'error' && m.fatal) {
+    showToast('⚠ ' + m.message);
+    setTimeout(goHome, 800);
+    return;
+  }
+
+  switch (m.type) {
+    case 'setupState': applySetup(m); break;
+    case 'started': showAuctionView(); break;
+    case 'state': applyState(m); break;
+    case 'bidUpdate': applyBidUpdate(m); break;
+    case 'ended': applyEnded(m); break;
+    case 'skipped': applySkipped(m); break;
+    case 'waiting': setWaiting(m); break;
+    case 'finished': applyFinished(m); break;
+    case 'error': setBidMsg(m.message, 'error'); break;
+  }
+}
+
+// ---------- SETUP VIEW ----------
+function applySetup(m) {
+  S.status = 'setup';
+  $('setupPanel').style.display = '';
+  $('auctionPanel').style.display = 'none';
+  $('sidePanel').style.display = 'none';
+  $('roomName').textContent = m.title;
+  document.title = `${m.title} · Auction House`;
+
+  const isHost = S.isHost;
+  $('itemForm').style.display = isHost ? '' : 'none';
+  $('btnStartAuction').style.display = isHost ? '' : 'none';
+  $('setupActions').style.display = isHost ? 'flex' : 'none';
+  $('btnStartAuction').disabled = m.items.length === 0;
+
+  if (isHost) {
+    $('setupTitle').textContent = '⚙️ Chuẩn bị đấu giá';
+    $('setupHint').textContent = `Thêm món bạn muốn đấu giá. Hiện có ${m.items.length} món — tối đa 20.`;
+  } else {
+    $('setupTitle').textContent = '⏳ Host đang chuẩn bị phòng';
+    $('setupHint').textContent = `Phòng "${m.title}" đang chuẩn bị. Chờ host bắt đầu nhé! (${m.items.length} món đã có)`;
+  }
+
+  renderSetupItems(m.items);
+}
+
+function renderSetupItems(items) {
+  const wrap = $('setupItems');
+  if (!items.length) {
+    wrap.innerHTML = '<div class="setup-empty">Chưa có món nào được thêm</div>';
+    return;
+  }
+  wrap.innerHTML = items.map((it, i) => {
+    const thumb = it.imageUrl
+      ? `<img src="${it.imageUrl}" alt="">`
+      : `<span>📦</span>`;
+    const removeBtn = S.isHost
+      ? `<button class="setup-item-remove" data-idx="${i}" title="Xóa món">✕</button>`
+      : '';
+    return `
+      <div class="setup-item">
+        <div class="setup-item-thumb" style="--product-gradient:${it.gradient}">${thumb}</div>
+        <div class="setup-item-body">
+          <div class="setup-item-name">${i + 1}. ${esc(it.name)}</div>
+          <div class="setup-item-meta">
+            <span>💰 <b>${fmt(it.startPrice)}</b></span>
+            <span>⏱ <b>${it.duration}s</b></span>
+            ${it.tagline ? `<span style="opacity:.7">${esc(it.tagline)}</span>` : ''}
+          </div>
+        </div>
+        ${removeBtn}
+      </div>`;
+  }).join('');
+
+  wrap.querySelectorAll('.setup-item-remove').forEach(btn => {
+    btn.onclick = async () => {
+      const idx = Number(btn.dataset.idx);
+      if (!confirm('Xóa món này?')) return;
+      try {
+        const r = await fetch(`/api/rooms/${S.room}/items/${idx}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hostToken: S.hostToken }),
+        });
+        if (!r.ok) throw new Error((await r.json()).error || 'Lỗi');
+      } catch (err) { showToast('⚠ ' + err.message); }
+    };
+  });
+}
+
+$('itemImage').onchange = e => {
+  const f = e.target.files[0];
+  const preview = $('itemImagePreview');
+  const label = $('fileLabel');
+  const nameEl = $('fileName');
+  if (f) {
+    preview.src = URL.createObjectURL(f);
+    preview.style.display = 'block';
+    label.classList.add('has-file');
+    nameEl.textContent = '✓ ' + f.name;
+  } else {
+    preview.style.display = 'none';
+    label.classList.remove('has-file');
+    nameEl.textContent = '📷 Chọn ảnh (tối đa 5MB)';
+  }
+};
+
+$('itemForm').onsubmit = async e => {
+  e.preventDefault();
+  if (S.addingItem) return;
+  S.addingItem = true;
+  const btn = $('btnAddItem');
+  btn.disabled = true; btn.textContent = 'Đang thêm...';
+
+  const form = e.target;
+  const fd = new FormData();
+  fd.append('hostToken', S.hostToken);
+  fd.append('name', form.name.value.trim());
+  fd.append('tagline', form.tagline.value.trim());
+  fd.append('startPrice', form.startPrice.value);
+  fd.append('duration', form.duration.value);
+  if (form.image.files[0]) fd.append('image', form.image.files[0]);
+
+  try {
+    const r = await fetch(`/api/rooms/${S.room}/items`, { method: 'POST', body: fd });
+    if (!r.ok) throw new Error((await r.json()).error || 'Lỗi thêm món');
+    form.reset();
+    $('itemImagePreview').style.display = 'none';
+    $('fileLabel').classList.remove('has-file');
+    $('fileName').textContent = '📷 Chọn ảnh (tối đa 5MB)';
+    form.querySelector('input[name=name]').focus();
+    showToast('✓ Đã thêm món');
+  } catch (err) { showToast('⚠ ' + err.message); }
+  finally {
+    S.addingItem = false;
+    btn.disabled = false; btn.textContent = '+ Thêm món';
+  }
+};
+
+$('btnPreset').onclick = async () => {
+  try {
+    const r = await fetch(`/api/rooms/${S.room}/preset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hostToken: S.hostToken }),
+    });
+    if (!r.ok) throw new Error((await r.json()).error || 'Lỗi');
+    showToast('✓ Đã thêm 3 món mẫu');
+  } catch (err) { showToast('⚠ ' + err.message); }
+};
+
+$('btnStartAuction').onclick = async () => {
+  if (!confirm('Bắt đầu đấu giá ngay bây giờ?')) return;
+  const btn = $('btnStartAuction');
+  btn.disabled = true; btn.textContent = 'Đang bắt đầu...';
+  try {
+    const r = await fetch(`/api/rooms/${S.room}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hostToken: S.hostToken }),
+    });
+    if (!r.ok) throw new Error((await r.json()).error || 'Lỗi');
+  } catch (err) {
+    showToast('⚠ ' + err.message);
+    btn.disabled = false; btn.textContent = '🚀 Bắt đầu đấu giá';
+  }
+};
+
+async function deleteRoom() {
+  if (!confirm('Xóa phòng này? Tất cả người tham gia sẽ bị đá ra. Không thể hoàn tác.')) return;
+  try {
+    const r = await fetch(`/api/rooms/${S.room}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hostToken: S.hostToken }),
+    });
+    if (!r.ok) throw new Error((await r.json()).error || 'Lỗi');
+    localStorage.removeItem(`auction.host.${S.room}`);
+    // server sẽ tự broadcast fatal và đóng ws
+  } catch (err) { showToast('⚠ ' + err.message); }
+}
+$('btnDeleteRoom').onclick = deleteRoom;
+$('btnDeleteRoom2').onclick = deleteRoom;
+
+// ---------- AUCTION VIEW ----------
+function showAuctionView() {
+  S.status = 'running';
+  $('setupPanel').style.display = 'none';
+  $('auctionPanel').style.display = '';
+  $('sidePanel').style.display = '';
+  $('hostControls').style.display = S.isHost ? '' : 'none';
+}
+
+$('btnSkipItem').onclick = async () => {
+  if (!confirm('Bỏ qua món này?')) return;
+  try {
+    const r = await fetch(`/api/rooms/${S.room}/skip`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hostToken: S.hostToken }),
+    });
+    if (!r.ok) throw new Error((await r.json()).error || 'Lỗi');
+  } catch (err) { showToast('⚠ ' + err.message); }
+};
+
+$('btnEndAuction').onclick = async () => {
+  if (!confirm('Kết thúc đấu giá ngay bây giờ? Các món còn lại sẽ bị bỏ qua.')) return;
+  try {
+    const r = await fetch(`/api/rooms/${S.room}/end`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hostToken: S.hostToken }),
+    });
+    if (!r.ok) throw new Error((await r.json()).error || 'Lỗi');
+  } catch (err) { showToast('⚠ ' + err.message); }
+};
+
+function applyState(m) {
+  showAuctionView();
+  const a = m.auction;
+  $('roomName').textContent = m.roomTitle || S.room;
+  document.title = `${m.roomTitle || S.room} · Auction House`;
+
+  if (a.imageUrl) {
+    $('productImg').src = a.imageUrl;
+    $('productImg').style.display = 'block';
+    $('productEmoji').style.display = 'none';
+    $('productHero').style.background = '#000';
+  } else {
+    $('productImg').style.display = 'none';
+    $('productEmoji').style.display = 'block';
+    $('productEmoji').textContent = '📦';
+    $('productHero').style.setProperty('--product-gradient', a.gradient || '');
+    $('productHero').style.background = a.gradient || '';
+  }
+
+  $('itemBadge').textContent = `${m.itemIndex} / ${m.totalItems}`;
+  $('itemName').textContent = a.name;
+  $('itemTagline').textContent = a.tagline || '';
+  $('highestBidder').textContent = a.highestBidder || 'Chưa có ai đặt giá';
+  $('bidCountTag').textContent = m.bidCount ? `${m.bidCount} lượt đặt giá` : '';
+  setPrice(a.currentBid, false);
+  $('btnBid').disabled = false;
+  $('statusLive').textContent = 'LIVE';
+  $('statusLive').style.color = '';
+  S.endsAt = Date.now() + m.timeLeft * 1000;
+  S.duration = m.duration || a.duration || 45;
+  S.lastWarnTick = -1;
+  renderBidders(m.bidders || []);
+  renderFeed(m.bidFeed || []);
+  hideWinner();
+  setBidMsg('');
+  startTicker();
+  beep(600, 80);
+}
+
+function applyBidUpdate(m) {
+  setPrice(m.currentBid, true);
+  $('highestBidder').textContent = m.highestBidder;
+  S.endsAt = Date.now() + m.timeLeft * 1000;
+  if (m.bidCount !== undefined) $('bidCountTag').textContent = `${m.bidCount} lượt đặt giá`;
+  renderBidders(m.bidders || []);
+  if (m.newBid && m.newBid.id !== S.lastBidId) {
+    S.lastBidId = m.newBid.id;
+    prependFeed(m.newBid, true);
+    beep(900, 60, 'square');
+  }
+  if (m.extended) {
+    showToast('⚡ Gia hạn +10s vì có bid phút chót!');
+    beep(1200, 200);
+  }
+}
+
+function applyEnded(m) {
+  $('btnBid').disabled = true;
+  $('statusLive').textContent = 'ĐÃ KẾT THÚC';
+  $('statusLive').style.color = 'var(--text-muted)';
+  setBidMsg('');
+  showWinner(m);
+  beep(500, 300, 'sawtooth');
+}
+
+function applySkipped(m) {
+  showToast(`⏭ Đã bỏ qua "${m.name}"`);
+  setWaiting({ nextIn: m.nextIn });
+}
+
+function setWaiting(m) {
+  showAuctionView();
+  $('itemName').textContent = 'Đang chờ món tiếp theo...';
+  $('itemTagline').textContent = '';
+  $('productImg').style.display = 'none';
+  $('productEmoji').style.display = 'block';
+  $('productEmoji').textContent = '⏳';
+  $('productHero').style.background = 'linear-gradient(135deg, #334155, #1e293b)';
+  $('bidCountTag').textContent = '';
+  $('btnBid').disabled = true;
+  $('statusLive').textContent = 'WAITING';
+  $('statusLive').style.color = 'var(--text-muted)';
+  $('timerFill').style.width = '0%';
+  $('timer').textContent = m.nextIn ?? '—';
+  hideWinner();
+}
+
+function applyFinished(m) {
+  showAuctionView();
+  S.status = 'finished';
+  $('itemName').textContent = '🎉 Đã hết các món đấu giá';
+  $('itemTagline').textContent = 'Cảm ơn mọi người đã tham gia!';
+  $('productImg').style.display = 'none';
+  $('productEmoji').style.display = 'block';
+  $('productEmoji').textContent = '🎉';
+  $('productHero').style.background = 'linear-gradient(135deg, #16a34a, #15803d)';
+  $('btnBid').disabled = true;
+  $('timerFill').style.width = '0%';
+  $('timer').textContent = '—';
+  hideWinner();
+  renderStats(m.stats || { sold: [], totalRevenue: 0 });
+  setTimeout(() => { $('finishedOverlay').style.display = 'grid'; }, 600);
+}
+
+function renderStats(stats) {
+  $('statSold').textContent = stats.sold.length;
+  $('statRevenue').textContent = fmt(stats.totalRevenue || 0);
+  const list = $('soldList');
+  if (!stats.sold.length) {
+    list.innerHTML = '<li class="empty-state" style="padding:12px">Không có món nào được bán</li>';
+    return;
+  }
+  list.innerHTML = stats.sold.map(s => {
+    const thumb = s.imageUrl
+      ? `<img src="${s.imageUrl}" alt="">`
+      : `<span>📦</span>`;
+    return `
+      <li class="sold-item">
+        <div class="sold-item-thumb">${thumb}</div>
+        <div class="sold-item-body">
+          <div class="sold-item-name">${esc(s.name)}</div>
+          <div class="sold-item-winner">👑 ${esc(s.winner)}</div>
+        </div>
+        <div class="sold-item-price">${fmt(s.price)}</div>
+      </li>`;
+  }).join('');
+}
+
+// ---------- Rendering helpers ----------
+function setPrice(amount, flash) {
+  const el = $('price');
+  el.textContent = fmt(amount);
+  if (flash) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+}
+
+function renderBidders(list) {
+  const ul = $('leaderboard');
+  if (!list.length) { ul.innerHTML = '<li class="empty-state">Chưa có ai đặt giá</li>'; return; }
+  const medals = ['🥇','🥈','🥉'];
+  ul.innerHTML = list.slice(0, 10).map((b, i) => `
+    <li>
+      <span class="medal">${medals[i] || ''}</span>
+      ${avatarHTML(b.name)}
+      <span class="bidder-name">${esc(b.name)}</span>
+      <span class="bidder-amount">${fmt(b.amount)}</span>
+    </li>
+  `).join('');
+}
+
+function renderFeed(feed) {
+  const ul = $('feed');
+  if (!feed.length) { ul.innerHTML = '<li class="empty-state">Chưa có hoạt động</li>'; return; }
+  ul.innerHTML = feed.map(f => feedItemHTML(f, false)).join('');
+}
+
+function prependFeed(entry, isNew) {
+  const ul = $('feed');
+  const empty = ul.querySelector('.empty-state');
+  if (empty) empty.remove();
+  ul.insertAdjacentHTML('afterbegin', feedItemHTML(entry, isNew));
+  while (ul.children.length > 40) ul.lastElementChild.remove();
+}
+
+function feedItemHTML(f, isNew) {
+  return `<li class="${isNew ? 'new' : ''}">
+    ${avatarHTML(f.name)}
+    <span class="name">${esc(f.name)}</span>
+    <span class="amt">${fmt(f.amount)}</span>
+    <span class="time">${timeAgo(f.ts).replace(' trước','')}</span>
+  </li>`;
+}
+
+function startTicker() {
+  clearInterval(S.ticker);
+  S.ticker = setInterval(() => {
+    if (!S.endsAt) return;
+    const left = Math.max(0, S.endsAt - Date.now());
+    const sec = Math.ceil(left / 1000);
+    $('timer').textContent = sec;
+    const pct = Math.max(0, Math.min(100, (left / (S.duration * 1000)) * 100));
+    $('timerFill').style.width = pct + '%';
+    if (sec <= 10) {
+      $('timerFill').classList.add('urgent');
+      // Beep cảnh báo mỗi 3s trong 10s cuối
+      if (sec !== S.lastWarnTick && sec > 0 && sec % 3 === 0) {
+        S.lastWarnTick = sec;
+        beep(1400, 100, 'triangle');
+      }
+    } else $('timerFill').classList.remove('urgent');
+  }, 100);
+}
+
+// ---------- Winner ----------
+function showWinner(m) {
+  if (m.imageUrl) {
+    $('winnerImg').src = m.imageUrl;
+    $('winnerImg').style.display = 'block';
+    $('winnerEmoji').style.display = 'none';
+  } else {
+    $('winnerImg').style.display = 'none';
+    $('winnerEmoji').style.display = 'block';
+    $('winnerEmoji').textContent = m.winner ? '🏆' : '😢';
+  }
+  $('winnerItemName').textContent = m.name;
+  if (m.winner) {
+    $('winnerPrice').textContent = fmt(m.price);
+    $('winnerPrice').style.display = '';
+    $('winnerName').textContent = `👑 ${m.winner}`;
+    $('winnerSub').textContent = 'Món tiếp theo sau vài giây...';
+  } else {
+    $('winnerPrice').style.display = 'none';
+    $('winnerName').textContent = 'Không có ai đặt giá';
+    $('winnerSub').textContent = 'Chuyển sang món tiếp theo...';
+  }
+  $('winnerOverlay').style.display = 'grid';
+}
+function hideWinner() { $('winnerOverlay').style.display = 'none'; }
+
+// ---------- Bid ----------
+$('btnBid').onclick = sendBid;
+$('amount').addEventListener('keydown', e => { if (e.key === 'Enter') sendBid(); });
+
+function sendBid() {
+  if (!S.ws || S.ws.readyState !== 1) return;
+  const amount = Number($('amount').value);
+  if (!amount) return setBidMsg('Nhập giá trước đã', 'error');
+  S.ws.send(JSON.stringify({ type: 'bid', name: S.name, amount }));
+  $('amount').value = '';
+  $('amount').focus();
+}
+
+document.querySelectorAll('.quick-btn').forEach(btn => {
+  btn.onclick = () => {
+    const inc = Number(btn.dataset.inc);
+    const currentPrice = Number(($('price').textContent || '0').replace(/[^\d]/g, '')) || 0;
+    $('amount').value = currentPrice + inc;
+    $('amount').focus();
+  };
+});
+
+function setBidMsg(text, cls = '') {
+  const el = $('bidMessage');
+  el.className = 'bid-message ' + cls;
+  el.textContent = text;
+  if (cls) {
+    clearTimeout(setBidMsg._t);
+    setBidMsg._t = setTimeout(() => { el.textContent = ''; el.className = 'bid-message'; }, 3000);
+  }
+}
+
+// ---------- Share ----------
+$('btnShare').onclick = async () => {
+  const url = `${location.origin}/?room=${encodeURIComponent(S.room)}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast('✓ Đã copy link phòng (không có quyền host)');
+  } catch {
+    prompt('Copy link phòng:', url);
+  }
+};
+
+// ---------- Init ----------
+(function init() {
+  const params = new URLSearchParams(location.search);
+  const urlRoom = params.get('room');
+  const urlHost = params.get('host');
+  const savedName = localStorage.getItem('auction.name');
+
+  if (savedName) $('inputName').value = savedName;
+  if (urlRoom) $('inputRoom').value = urlRoom;
+
+  if (urlRoom && savedName) {
+    const savedHost = localStorage.getItem(`auction.host.${urlRoom}`);
+    joinRoom(savedName, urlRoom, urlHost || savedHost || '');
+  } else if (urlRoom) {
+    document.querySelector('.tab[data-tab="join"]').click();
+    $('inputName').focus();
+  } else {
+    $('inputName').focus();
+  }
+})();
+</script>
+</body>
+</html>
