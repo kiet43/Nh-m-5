@@ -1,334 +1,484 @@
+const express = require('express');
 const http = require('http');
-const fs = require('fs');
+const { WebSocketServer } = require('ws');
 const path = require('path');
 const crypto = require('crypto');
-const { WebSocketServer } = require('ws');
+const fs = require('fs');
+const multer = require('multer');
 
-const PORT = process.env.PORT || 3000;
-const PUBLIC_DIR = path.resolve(__dirname, 'public');
+const app = express();
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css' };
+const uploadDir = path.join(__dirname, 'public', 'uploads');
+fs.mkdirSync(uploadDir, { recursive: true });
 
-const httpServer = http.createServer((req, res) => {
-  if (req.url === '/health') { res.writeHead(200); return res.end('OK'); }
-  let file = decodeURIComponent(req.url.split('?')[0]);
-  if (file === '/') file = '/index.html';
-  const resolved = path.resolve(path.join(PUBLIC_DIR, file));
-  if (!resolved.startsWith(PUBLIC_DIR)) { res.writeHead(403); return res.end('Forbidden'); }
-  fs.readFile(resolved, (err, data) => {
-    if (err) { res.writeHead(404); return res.end('Not found'); }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(resolved)] || 'application/octet-stream' });
-    res.end(data);
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: uploadDir,
+    filename: (req, file, cb) => {
+      const ext = (path.extname(file.originalname) || '.jpg').toLowerCase().slice(0, 8);
+      cb(null, crypto.randomBytes(10).toString('hex') + ext);
+    },
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (/^image\//.test(file.mimetype)) cb(null, true);
+    else cb(new Error('Chỉ nhận file ảnh'));
+  },
+});
+
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
+
+const GAP = 8;
+const ANTI_SNIPE_WINDOW = 5000; // 5s
+const ANTI_SNIPE_EXTEND = 10000; // +10s
+const MAX_FEED = 40;
+const MAX_NAME = 30;
+const MAX_ITEMS = 20;
+const ROOM_TTL = 2 * 60 * 60 * 1000; // 2 giờ
+
+const GRADIENTS = [
+  'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+  'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+  'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+  'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+  'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
+  'linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%)',
+  'linear-gradient(135deg, #f6d365 0%, #fda085 100%)',
+];
+
+const PRESETS = [
+  { name: 'Vintage Seiko Automatic', tagline: 'Đồng hồ cơ Nhật 1970, đã bảo dưỡng toàn bộ', startPrice: 500000, duration: 45 },
+  { name: 'Polaroid SX-70', tagline: 'Máy ảnh cổ điển đã test, kèm hộp phim mới', startPrice: 1200000, duration: 60 },
+  { name: 'Leica M3 (1954)', tagline: 'Huyền thoại kèm Summicron 50mm, đã CLA', startPrice: 2800000, duration: 90 },
+];
+
+const rooms = new Map();
+
+// ---------- helpers ----------
+const biddersArray = room => [...room.bidders.entries()]
+  .map(([name, amount]) => ({ name, amount }))
+  .sort((a, b) => b.amount - a.amount);
+
+function roomBroadcast(room, msg) {
+  const data = JSON.stringify(msg);
+  for (const c of room.clients) if (c.readyState === 1) c.send(data);
+}
+
+function setupSnapshot(room) {
+  return {
+    type: 'setupState',
+    status: room.status,
+    title: room.title,
+    host: room.host,
+    online: room.clients.size,
+    items: room.items.map(i => ({
+      name: i.name,
+      tagline: i.tagline,
+      startPrice: i.startPrice,
+      duration: i.duration,
+      imageUrl: i.imageUrl,
+      gradient: i.gradient,
+    })),
+  };
+}
+
+function auctionSnapshot(room, extra = {}) {
+  return {
+    bidders: biddersArray(room),
+    online: room.clients.size,
+    itemIndex: room.currentIndex + 1,
+    totalItems: room.items.length,
+    bidFeed: room.bidFeed,
+    bidCount: room.bidCount,
+    roomTitle: room.title,
+    roomHost: room.host,
+    ...extra,
+  };
+}
+
+function startNext(room) {
+  room.currentIndex++;
+  room.bidders.clear();
+  room.bidFeed = [];
+  room.bidCount = 0;
+
+  if (room.currentIndex >= room.items.length) {
+    room.status = 'finished';
+    room.auction = null;
+    roomBroadcast(room, { type: 'finished', stats: room.stats });
+    return;
+  }
+
+  const it = room.items[room.currentIndex];
+  room.auction = {
+    name: it.name,
+    tagline: it.tagline,
+    imageUrl: it.imageUrl,
+    gradient: it.gradient,
+    currentBid: it.startPrice,
+    highestBidder: null,
+    duration: it.duration,
+    endsAt: Date.now() + it.duration * 1000,
+  };
+
+  roomBroadcast(room, auctionSnapshot(room, {
+    type: 'state',
+    auction: room.auction,
+    timeLeft: it.duration,
+    duration: it.duration,
+  }));
+
+  room.timer = setTimeout(() => endAuction(room), it.duration * 1000);
+}
+
+function endAuction(room) {
+  if (!room.auction) return;
+  const a = room.auction;
+
+  if (a.highestBidder) {
+    room.stats.sold.push({
+      name: a.name,
+      imageUrl: a.imageUrl,
+      winner: a.highestBidder,
+      price: a.currentBid,
+    });
+    room.stats.totalRevenue += a.currentBid;
+    room.stats.byBidder[a.highestBidder] = (room.stats.byBidder[a.highestBidder] || 0) + 1;
+  }
+
+  roomBroadcast(room, auctionSnapshot(room, {
+    type: 'ended',
+    name: a.name,
+    imageUrl: a.imageUrl,
+    winner: a.highestBidder,
+    price: a.currentBid,
+    nextIn: GAP,
+  }));
+  room.auction = null;
+  room.gapTimer = setTimeout(() => startNext(room), GAP * 1000);
+}
+
+function getRoom(id) { return rooms.get(id) || null; }
+
+function sendInitialState(ws, room) {
+  if (room.status === 'setup') {
+    ws.send(JSON.stringify(setupSnapshot(room)));
+  } else if (room.status === 'running' && room.auction) {
+    ws.send(JSON.stringify(auctionSnapshot(room, {
+      type: 'state',
+      auction: room.auction,
+      timeLeft: Math.max(0, Math.ceil((room.auction.endsAt - Date.now()) / 1000)),
+      duration: room.auction.duration,
+    })));
+  } else if (room.status === 'running') {
+    ws.send(JSON.stringify({
+      type: 'waiting',
+      online: room.clients.size,
+      nextIn: GAP,
+      roomTitle: room.title,
+    }));
+  } else {
+    ws.send(JSON.stringify({ type: 'finished', stats: room.stats }));
+  }
+}
+
+function cleanupRoomFiles(room) {
+  room.items.forEach(it => {
+    if (it.imageUrl) {
+      const p = path.join(__dirname, 'public', it.imageUrl);
+      fs.unlink(p, () => {});
+    }
+  });
+}
+
+// ---------- REST API ----------
+app.post('/api/rooms', (req, res) => {
+  const title = String(req.body.title || '').trim().slice(0, 50);
+  const host = String(req.body.host || '').trim().slice(0, MAX_NAME);
+  if (!title) return res.status(400).json({ error: 'Tên phòng không được trống' });
+
+  let id;
+  do { id = crypto.randomBytes(3).toString('hex'); } while (rooms.has(id));
+
+  const hostToken = crypto.randomBytes(16).toString('hex');
+  const room = {
+    id, title,
+    host: host || 'Ẩn danh',
+    hostToken,
+    createdAt: Date.now(),
+    status: 'setup',
+    items: [],
+    clients: new Set(),
+    bidders: new Map(),
+    bidFeed: [],
+    bidCount: 0,
+    currentIndex: -1,
+    auction: null,
+    timer: null,
+    gapTimer: null,
+    stats: { sold: [], totalRevenue: 0, byBidder: {} },
+  };
+  rooms.set(id, room);
+  res.json({ id, hostToken, title: room.title, host: room.host });
+});
+
+app.get('/api/rooms', (req, res) => {
+  const list = [...rooms.values()].map(r => {
+    let status = 'setup';
+    if (r.status === 'running') status = r.auction ? 'live' : 'waiting';
+    else if (r.status === 'finished') status = 'ended';
+    return {
+      id: r.id, title: r.title, host: r.host,
+      online: r.clients.size, status,
+      itemIndex: r.currentIndex + 1,
+      totalItems: r.items.length,
+      currentItem: r.auction?.name || null,
+      createdAt: r.createdAt,
+    };
+  }).sort((a, b) =>
+    (b.status === 'live' ? 1 : 0) - (a.status === 'live' ? 1 : 0) ||
+    b.online - a.online ||
+    b.createdAt - a.createdAt
+  );
+  res.json(list);
+});
+
+app.post('/api/upload', (req, res) => {
+  upload.single('image')(req, res, err => {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.file) return res.status(400).json({ error: 'Không có file' });
+    res.json({ url: '/uploads/' + req.file.filename });
   });
 });
 
-// ============ CONSTANTS ============
-const GRAVITY = 0.5;
-const JUMP_VELOCITY = -10;
-const MOVE_SPEED = 4;
-const MAX_FALL = 12;
-const PLAYER_W = 24;
-const PLAYER_H = 32;
-const TICK_MS = 1000 / 60;
-const WORLD_W = 900;
-const WORLD_H = 600;
+app.post('/api/rooms/:id/items', (req, res) => {
+  const room = getRoom(req.params.id);
+  if (!room) return res.status(404).json({ error: 'Phòng không tồn tại' });
+  if (room.status !== 'setup') return res.status(400).json({ error: 'Phòng đã bắt đầu' });
+  if (room.items.length >= MAX_ITEMS) return res.status(400).json({ error: `Tối đa ${MAX_ITEMS} món` });
 
-const LEVEL = {
-  platforms: [
-    { x: 0,   y: 560, w: 900, h: 40 },   // ground
-    { x: 200, y: 480, w: 500, h: 20 },   // platform 1
-    { x: 300, y: 370, w: 300, h: 20 },   // platform 2 (win)
-  ],
-  spawns: { X: { x: 230, y: 528 }, O: { x: 646, y: 528 } },
-  flag:   { x: 435, y: 330, w: 30,  h: 40 },
-};
+  upload.single('image')(req, res, err => {
+    if (err) return res.status(400).json({ error: err.message });
+    if (req.body.hostToken !== room.hostToken) return res.status(403).json({ error: 'Chỉ host mới thêm được' });
 
-// ============ HELPERS ============
-function overlap(a, b, buf = 0) {
-  const aw = a.w || PLAYER_W, ah = a.h || PLAYER_H;
-  const bw = b.w || PLAYER_W, bh = b.h || PLAYER_H;
-  return a.x < b.x + bw + buf && a.x + aw > b.x - buf &&
-         a.y < b.y + bh + buf && a.y + ah > b.y - buf;
-}
+    const name = String(req.body.name || '').trim().slice(0, 100);
+    const tagline = String(req.body.tagline || '').trim().slice(0, 200);
+    const startPrice = Math.max(0, Math.floor(Number(req.body.startPrice) || 0));
+    const duration = Math.max(10, Math.min(300, Math.floor(Number(req.body.duration) || 60)));
 
-function makePlayer(spawn) {
-  return { x: spawn.x, y: spawn.y, vx: 0, vy: 0,
-    onGround: false, onPlayer: null, jumpHeld: false,
-    touchedFlag: false, prevX: spawn.x, prevY: spawn.y };
-}
+    if (!name) return res.status(400).json({ error: 'Tên món không được trống' });
 
-// ============ ROOMS ============
-const rooms = new Map();
-let roomCounter = 0;
-
-function makeRoom() {
-  const room = {
-    id: 'R' + (++roomCounter),
-    players: { X: null, O: null },
-    spectators: [],
-    state: {
-      players: { X: makePlayer(LEVEL.spawns.X), O: makePlayer(LEVEL.spawns.O) },
-      input: { X: { left: false, right: false, jump: false }, O: { left: false, right: false, jump: false } },
-      winner: false,
-    },
-    interval: null,
-  };
-  rooms.set(room.id, room);
-  return room;
-}
-
-function findRoom() {
-  for (const r of rooms.values()) if (!r.players.X || !r.players.O) return r;
-  return makeRoom();
-}
-
-function resetRoom(room) {
-  const s = room.state;
-  s.players.X = makePlayer(LEVEL.spawns.X);
-  s.players.O = makePlayer(LEVEL.spawns.O);
-  s.input.X = { left: false, right: false, jump: false };
-  s.input.O = { left: false, right: false, jump: false };
-  s.winner = false;
-}
-
-function ensureLoop(room) {
-  if (room.interval) return;
-  room.interval = setInterval(() => tick(room), TICK_MS);
-}
-
-function stopLoop(room) {
-  if (room.interval) { clearInterval(room.interval); room.interval = null; }
-}
-
-// ============ PHYSICS TICK ============
-function tick(room) {
-  const st = room.state;
-  const { players, input } = st;
-
-  // Apply input
-  for (const sym of ['X', 'O']) {
-    const p = players[sym], inp = input[sym];
-    p.vx = 0;
-    if (inp.left) p.vx = -MOVE_SPEED;
-    if (inp.right) p.vx = MOVE_SPEED;
-    if (inp.jump && !p.jumpHeld && (p.onGround || p.onPlayer)) p.vy = JUMP_VELOCITY;
-    p.jumpHeld = inp.jump;
-    p.prevX = p.x; p.prevY = p.y;
-    p.onGround = false;
-  }
-
-  // Physics
-  for (const sym of ['X', 'O']) {
-    const p = players[sym];
-    const other = players[sym === 'X' ? 'O' : 'X'];
-
-    // Horizontal
-    p.x += p.vx;
-    for (const plat of LEVEL.platforms) {
-      if (overlap(p, plat)) {
-        if (p.vx > 0) p.x = plat.x - PLAYER_W;
-        else if (p.vx < 0) p.x = plat.x + plat.w;
-        p.vx = 0;
-      }
-    }
-    // Player horizontal collision (only if real overlap, not stacking)
-    if (overlap(p, other)) {
-      const vOv = Math.min(p.y + PLAYER_H, other.y + PLAYER_H) - Math.max(p.y, other.y);
-      if (vOv > PLAYER_H * 0.5) {
-        if (p.vx > 0) p.x = other.x - PLAYER_W;
-        else if (p.vx < 0) p.x = other.x + PLAYER_W;
-        p.vx = 0;
-      }
-    }
-    if (p.x < 0) p.x = 0;
-    if (p.x + PLAYER_W > WORLD_W) p.x = WORLD_W - PLAYER_W;
-
-    // Vertical
-    p.vy += GRAVITY;
-    if (p.vy > MAX_FALL) p.vy = MAX_FALL;
-    p.y += p.vy;
-    p.onPlayer = null;
-    for (const plat of LEVEL.platforms) {
-      if (overlap(p, plat)) {
-        if (p.vy > 0) { p.y = plat.y - PLAYER_H; p.vy = 0; p.onGround = true; }
-        else if (p.vy < 0) { p.y = plat.y + plat.h; p.vy = 0; }
-      }
-    }
-  }
-
-  // Player-on-player stacking (with buffer for touching)
-  for (const sym of ['X', 'O']) {
-    const p = players[sym];
-    const otherSym = sym === 'X' ? 'O' : 'X';
-    const other = players[otherSym];
-    if (overlap(p, other, 4) && p.vy >= 0 && p.y < other.y) {
-      p.y = other.y - PLAYER_H;
-      p.vy = 0;
-      p.onPlayer = otherSym;
-    }
-  }
-
-  // Respawn if fell
-  for (const sym of ['X', 'O']) {
-    const p = players[sym];
-    if (p.y > WORLD_H + 100) {
-      p.x = LEVEL.spawns[sym].x;
-      p.y = LEVEL.spawns[sym].y;
-      p.vx = 0; p.vy = 0;
-    }
-  }
-
-  // Flag check
-  if (!st.winner) {
-    for (const sym of ['X', 'O']) {
-      const p = players[sym];
-      if (!p.touchedFlag && overlap(p, LEVEL.flag)) {
-        p.touchedFlag = true;
-        broadcastChat(room, 'Hệ thống', `🚩 ${sym} đã chạm cờ!`);
-      }
-    }
-    if (players.X.touchedFlag && players.O.touchedFlag) {
-      st.winner = true;
-      broadcastChat(room, 'Hệ thống', '🎉 CẢ HAI ĐÃ CHẠM CỜ — CHIẾN THẮNG!');
-    }
-  }
-
-  broadcastState(room);
-}
-
-// ============ BROADCAST ============
-function send(ws, obj) { try { ws.send(JSON.stringify(obj)); } catch {} }
-
-function broadcastState(room) {
-  const st = room.state;
-  const msg = JSON.stringify({
-    type: 'state',
-    players: {
-      X: { x: st.players.X.x, y: st.players.X.y, touchedFlag: st.players.X.touchedFlag },
-      O: { x: st.players.O.x, y: st.players.O.y, touchedFlag: st.players.O.touchedFlag },
-    },
-    winner: st.winner,
-    playerInfo: {
-      X: room.players.X ? { id: room.players.X.id, name: room.players.X.name } : null,
-      O: room.players.O ? { id: room.players.O.id, name: room.players.O.name } : null,
-    },
-    spectatorCount: room.spectators.length,
-    inProgress: !!(room.players.X && room.players.O),
+    const item = {
+      name, tagline, startPrice, duration,
+      imageUrl: req.file ? '/uploads/' + req.file.filename : null,
+      gradient: GRADIENTS[room.items.length % GRADIENTS.length],
+    };
+    room.items.push(item);
+    roomBroadcast(room, setupSnapshot(room));
+    res.json({ ok: true, item });
   });
-  for (const s of ['X', 'O']) if (room.players[s]) try { room.players[s].send(msg); } catch {}
-  for (const s of room.spectators) try { s.send(msg); } catch {}
-}
+});
 
-function broadcastChat(room, name, text, extra = {}) {
-  const msg = JSON.stringify({ type: 'chat', name, text, ts: Date.now(), ...extra });
-  for (const s of ['X', 'O']) if (room.players[s]) try { room.players[s].send(msg); } catch {}
-  for (const s of room.spectators) try { s.send(msg); } catch {}
-}
+app.delete('/api/rooms/:id/items/:idx', (req, res) => {
+  const room = getRoom(req.params.id);
+  if (!room) return res.status(404).json({ error: 'Phòng không tồn tại' });
+  if (room.status !== 'setup') return res.status(400).json({ error: 'Phòng đã bắt đầu' });
+  if (req.body.hostToken !== room.hostToken) return res.status(403).json({ error: 'Không có quyền' });
 
-// ============ WEBSOCKET ============
-const wss = new WebSocketServer({ server: httpServer });
+  const idx = Number(req.params.idx);
+  if (idx < 0 || idx >= room.items.length) return res.status(404).json({ error: 'Không tìm thấy' });
+  const [removed] = room.items.splice(idx, 1);
+  if (removed.imageUrl) {
+    fs.unlink(path.join(__dirname, 'public', removed.imageUrl), () => {});
+  }
+  roomBroadcast(room, setupSnapshot(room));
+  res.json({ ok: true });
+});
 
-wss.on('connection', (ws) => {
-  ws.id = crypto.randomBytes(4).toString('hex');
-  ws.name = 'Player-' + ws.id.slice(0, 4);
-  ws.symbol = null;
-  ws.room = null;
-  ws.isAlive = true;
-  ws.on('pong', () => { ws.isAlive = true; });
+app.post('/api/rooms/:id/preset', (req, res) => {
+  const room = getRoom(req.params.id);
+  if (!room) return res.status(404).json({ error: 'Phòng không tồn tại' });
+  if (req.body.hostToken !== room.hostToken) return res.status(403).json({ error: 'Không có quyền' });
+  if (room.status !== 'setup') return res.status(400).json({ error: 'Phòng đã bắt đầu' });
 
-  const room = findRoom();
+  PRESETS.forEach(p => {
+    if (room.items.length >= MAX_ITEMS) return;
+    room.items.push({
+      ...p,
+      imageUrl: null,
+      gradient: GRADIENTS[room.items.length % GRADIENTS.length],
+    });
+  });
+  roomBroadcast(room, setupSnapshot(room));
+  res.json({ ok: true });
+});
+
+app.post('/api/rooms/:id/start', (req, res) => {
+  const room = getRoom(req.params.id);
+  if (!room) return res.status(404).json({ error: 'Phòng không tồn tại' });
+  if (req.body.hostToken !== room.hostToken) return res.status(403).json({ error: 'Không có quyền' });
+  if (room.status !== 'setup') return res.status(400).json({ error: 'Phòng đã bắt đầu rồi' });
+  if (room.items.length === 0) return res.status(400).json({ error: 'Thêm ít nhất 1 món đã' });
+
+  room.status = 'running';
+  room.currentIndex = -1;
+  room.stats = { sold: [], totalRevenue: 0, byBidder: {} };
+  roomBroadcast(room, { type: 'started' });
+  setTimeout(() => startNext(room), 300);
+  res.json({ ok: true });
+});
+
+app.post('/api/rooms/:id/skip', (req, res) => {
+  const room = getRoom(req.params.id);
+  if (!room) return res.status(404).json({ error: 'Phòng không tồn tại' });
+  if (req.body.hostToken !== room.hostToken) return res.status(403).json({ error: 'Không có quyền' });
+  if (room.status !== 'running' || !room.auction) return res.status(400).json({ error: 'Không có phiên đang chạy' });
+
+  clearTimeout(room.timer);
+  const a = room.auction;
+  room.auction = null;
+  roomBroadcast(room, auctionSnapshot(room, {
+    type: 'skipped',
+    name: a.name,
+    nextIn: GAP,
+  }));
+  room.gapTimer = setTimeout(() => startNext(room), GAP * 1000);
+  res.json({ ok: true });
+});
+
+app.post('/api/rooms/:id/end', (req, res) => {
+  const room = getRoom(req.params.id);
+  if (!room) return res.status(404).json({ error: 'Phòng không tồn tại' });
+  if (req.body.hostToken !== room.hostToken) return res.status(403).json({ error: 'Không có quyền' });
+  if (room.status !== 'running') return res.status(400).json({ error: 'Phòng không ở trạng thái đấu giá' });
+
+  clearTimeout(room.timer);
+  clearTimeout(room.gapTimer);
+
+  // Nếu món hiện tại có winner thì tính
+  if (room.auction && room.auction.highestBidder) {
+    const a = room.auction;
+    room.stats.sold.push({
+      name: a.name, imageUrl: a.imageUrl,
+      winner: a.highestBidder, price: a.currentBid,
+    });
+    room.stats.totalRevenue += a.currentBid;
+    room.stats.byBidder[a.highestBidder] = (room.stats.byBidder[a.highestBidder] || 0) + 1;
+  }
+
+  room.auction = null;
+  room.status = 'finished';
+  roomBroadcast(room, { type: 'finished', stats: room.stats });
+  res.json({ ok: true });
+});
+
+app.delete('/api/rooms/:id', (req, res) => {
+  const room = getRoom(req.params.id);
+  if (!room) return res.status(404).json({ error: 'Phòng không tồn tại' });
+  if (req.body.hostToken !== room.hostToken) return res.status(403).json({ error: 'Không có quyền' });
+
+  clearTimeout(room.timer);
+  clearTimeout(room.gapTimer);
+  cleanupRoomFiles(room);
+
+  roomBroadcast(room, { type: 'error', message: 'Host đã xóa phòng', fatal: true });
+  room.clients.forEach(c => { try { c.close(); } catch {} });
+  rooms.delete(req.params.id);
+  res.json({ ok: true });
+});
+
+// ---------- WebSocket ----------
+wss.on('connection', (ws, req) => {
+  const url = new URL(req.url, 'http://x');
+  const roomId = (url.searchParams.get('room') || '').slice(0, 30);
+  const hostToken = url.searchParams.get('host');
+
+  const room = getRoom(roomId);
+  if (!room) {
+    ws.send(JSON.stringify({ type: 'error', message: 'Phòng không tồn tại hoặc đã đóng', fatal: true }));
+    return ws.close();
+  }
+
+  ws.isHost = !!(hostToken && room.hostToken === hostToken);
   ws.room = room;
+  room.clients.add(ws);
 
-  let symbol = null;
-  if (!room.players.X)      { symbol = 'X'; room.players.X = ws; }
-  else if (!room.players.O) { symbol = 'O'; room.players.O = ws; }
-  else                      { room.spectators.push(ws); }
-  ws.symbol = symbol;
+  sendInitialState(ws, room);
+  roomBroadcast(room, { type: 'online', online: room.clients.size });
 
-  ensureLoop(room);
-
-  send(ws, { type: 'welcome', id: ws.id, symbol, name: ws.name, level: LEVEL });
-  broadcastChat(room, 'Hệ thống', `${ws.name} đã vào (${symbol ? 'Người chơi ' + symbol : 'Khán giả'})`);
-  broadcastState(room);
-
-  ws.on('message', (raw) => {
+  ws.on('message', raw => {
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
-    const room = ws.room;
-    if (!room) return;
+    if (msg.type !== 'bid') return;
 
-    switch (msg.type) {
-      case 'input':
-        if (ws.symbol && room.state.input[ws.symbol]) {
-          room.state.input[ws.symbol] = {
-            left: !!msg.left, right: !!msg.right, jump: !!msg.jump,
-          };
-        }
-        break;
-      case 'chat': {
-        const text = String(msg.text || '').slice(0, 300).trim();
-        if (text) broadcastChat(room, ws.name, text, { self: ws.id });
-        break;
-      }
-      case 'setName': {
-        const name = String(msg.name || '').trim().slice(0, 20);
-        if (name && name !== ws.name) {
-          const old = ws.name; ws.name = name;
-          broadcastChat(room, 'Hệ thống', `${old} → ${name}`);
-          broadcastState(room);
-        }
-        break;
-      }
-      case 'reset':
-        if (ws.symbol) {
-          resetRoom(room);
-          broadcastChat(room, 'Hệ thống', `🔄 ${ws.name} đã reset game`);
-          broadcastState(room);
-        }
-        break;
+    if (room.status !== 'running' || !room.auction) {
+      return ws.send(JSON.stringify({ type: 'error', message: 'Chưa có phiên đấu giá' }));
     }
+
+    const name = String(msg.name || '').trim().slice(0, MAX_NAME);
+    const amount = Math.floor(Number(msg.amount));
+
+    if (!name) return ws.send(JSON.stringify({ type: 'error', message: 'Vui lòng nhập tên' }));
+    if (!amount || amount <= room.auction.currentBid) {
+      return ws.send(JSON.stringify({
+        type: 'error',
+        message: `Giá phải cao hơn ${room.auction.currentBid.toLocaleString('vi-VN')}₫`,
+      }));
+    }
+
+    room.auction.currentBid = amount;
+    room.auction.highestBidder = name;
+    room.bidders.set(name, amount);
+    room.bidCount++;
+
+    // Anti-sniping: bid trong 5s cuối → cộng thêm 10s
+    const now = Date.now();
+    let extended = false;
+    if (room.auction.endsAt - now < ANTI_SNIPE_WINDOW) {
+      room.auction.endsAt += ANTI_SNIPE_EXTEND;
+      extended = true;
+      clearTimeout(room.timer);
+      room.timer = setTimeout(() => endAuction(room), room.auction.endsAt - now);
+    }
+
+    const entry = { id: crypto.randomBytes(4).toString('hex'), name, amount, ts: now };
+    room.bidFeed.unshift(entry);
+    if (room.bidFeed.length > MAX_FEED) room.bidFeed.pop();
+
+    roomBroadcast(room, auctionSnapshot(room, {
+      type: 'bidUpdate',
+      currentBid: amount,
+      highestBidder: name,
+      timeLeft: Math.max(0, Math.ceil((room.auction.endsAt - now) / 1000)),
+      extended,
+      newBid: entry,
+    }));
   });
 
   ws.on('close', () => {
-    const room = ws.room;
-    if (!room) return;
-    if (room.players.X === ws) room.players.X = null;
-    if (room.players.O === ws) room.players.O = null;
-    room.spectators = room.spectators.filter(s => s !== ws);
-    ws.room = null;
-
-    broadcastChat(room, 'Hệ thống', `${ws.name} đã rời phòng`);
-    resetRoom(room);
-
-    if (!room.players.X && room.spectators.length) {
-      const s = room.spectators.shift();
-      s.symbol = 'X'; room.players.X = s;
-      send(s, { type: 'role', symbol: 'X' });
-    }
-    if (!room.players.O && room.spectators.length) {
-      const s = room.spectators.shift();
-      s.symbol = 'O'; room.players.O = s;
-      send(s, { type: 'role', symbol: 'O' });
-    }
-
-    if (!room.players.X && !room.players.O && room.spectators.length === 0) {
-      stopLoop(room);
-      rooms.delete(room.id);
-    } else {
-      broadcastState(room);
-    }
+    room.clients.delete(ws);
+    roomBroadcast(room, { type: 'online', online: room.clients.size });
   });
 });
 
-// Ping keepalive (quan trọng cho public deployment)
+// ---------- background cleanup ----------
 setInterval(() => {
-  wss.clients.forEach(ws => {
-    if (ws.isAlive === false) return ws.terminate();
-    ws.isAlive = false;
-    ws.ping();
-  });
-}, 25000);
+  const now = Date.now();
+  for (const [id, room] of rooms) {
+    if (room.clients.size > 0) continue;
+    if (now - room.createdAt > ROOM_TTL) {
+      clearTimeout(room.timer);
+      clearTimeout(room.gapTimer);
+      cleanupRoomFiles(room);
+      rooms.delete(id);
+      console.log(`[cleanup] room ${id} (inactive ${Math.round((now - room.createdAt) / 60000)}m)`);
+    }
+  }
+}, 10 * 60 * 1000); // mỗi 10 phút
 
-httpServer.listen(PORT, () => {
-  console.log(`✅ Server: http://localhost:${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`→ http://localhost:${PORT}`));
