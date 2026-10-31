@@ -1,165 +1,156 @@
-# Websockets Auction Platform
+# Hệ thống đấu giá trực tiếp
 
-A simple live auction platform demonstrating the difference between traditional REST API interactions and real-time updates using WebSockets. Users can view auction items, place bids, and see updates instantly without needing to refresh the page.
+Dự án này xây dựng một nền tảng đấu giá trực tiếp theo thời gian thực, cho phép người dùng xem sản phẩm, đặt giá và theo dõi cập nhật ngay lập tức mà không cần refresh trang. Ứng dụng kết hợp giữa REST API và WebSocket để mô phỏng trải nghiệm đấu giá thực tế.
 
-## Features
+## 1. Tổng quan
 
-### User Features
+- Backend: Node.js + Express
+- Frontend: React + TypeScript + Vite
+- Real-time: WebSocket
+- CSDL: SQLite
+- Giao tiếp: REST API + WebSocket đồng thời
 
-* **View Auction Items:** Browse a list of items available for auction.
-* **View Item Details:** Select an item to see its description, starting bid, current highest bid, and bid history.
-* **Place Bids:**
-  * **REST API Bidding:** Submit bids via a traditional HTTP POST request.
-  * **WebSocket Bidding:** Submit bids via a WebSocket message for faster processing and real-time feedback.
-* **Real-time Updates:** Automatically see the latest bids and current prices updated live via WebSockets.
-* **Connection Status:** Visual indicator showing whether the real-time WebSocket connection is active or attempting to reconnect.
-* **Set Bidder Name:** Users can set their name, which is associated with their bids.
+Dự án phù hợp để minh họa sự khác biệt giữa thao tác truyền thống qua HTTP và cập nhật dữ liệu realtime trên client.
 
-### Backend & Real-time Features
+## 2. Tính năng
 
-* **Hybrid API:** Provides both a REST API for standard operations and a WebSocket server for real-time communication.
-* **Persistent Storage:** Uses SQLite to store auction items and bid history.
-* **Bid Validation:** Ensures bids are higher than the current highest bid.
-* **Broadcasting:** New bids (placed via REST or WebSocket) are broadcast to all connected clients in real-time.
-* **WebSocket Management:** Handles client connections, disconnections, heartbeats (keep-alive), and automatic reconnection attempts on the client-side.
-* **Initial Data Sync:** Sends the current state of all auction items to clients upon WebSocket connection.
+### Người dùng
+- Xem danh sách các vật phẩm đang đấu giá
+- Xem chi tiết sản phẩm, giá khởi điểm và giá hiện tại
+- Đặt giá bằng cách nhập tên người đặt và mức giá
+- Theo dõi lịch sử đặt giá theo thời gian thực
+- Nhận thông báo khi có người đặt giá mới
+- Kiểm tra trạng thái kết nối WebSocket
 
-### Admin Features (Backend Only - UI Pending)
+### Backend
+- Cung cấp API REST để lấy dữ liệu và đặt giá
+- Sử dụng WebSocket để broadcast dữ liệu cho tất cả client đang kết nối
+- Kiểm tra tính hợp lệ của mức giá (giá mới phải cao hơn giá hiện tại)
+- Lưu dữ liệu đấu giá vào SQLite
+- Đồng bộ dữ liệu ban đầu khi client nối WebSocket mới
 
-* **Authentication:** Simple username/password authentication for admin actions (configured via `.env`).
-* **Bid Acceptance:** Endpoint to mark a specific bid as accepted (broadcasts event).
-* **Auction Timer:** Endpoints to start and stop a countdown timer for bidding (broadcasts timer state).
-* **Bidder Management:** Endpoints to view connected bidders and remove/kick a specific bidder.
+### Quản trị viên (nếu có triển khai mở rộng)
+- Xác thực admin bằng username/password
+- Chấp nhận giá đấu
+- Bật/tắt đồng hồ thời gian đấu giá
+- Xem và xóa người tham gia đang online
 
-## Technology Stack
+## 3. Công nghệ sử dụng
 
-* **Backend:** Node.js, Express.js, `ws` (WebSocket library), SQLite, dotenv
-* **Frontend:** React, TypeScript, Vite, `styled-components`, Axios
+- Node.js
+- Express
+- WebSocket (`ws`)
+- SQLite
+- React
+- TypeScript
+- Vite
+- Axios
+- Styled Components
 
-## Prerequisites
+## 4. Cấu trúc thư mục
 
-* Node.js (v20 or later) - REQUIRED
-* npm (v10 or later) - REQUIRED
+```bash
+Nh-m-5/
+├── backend/
+│   ├── data/
+│   ├── src/
+│   ├── package.json
+│   └── .env
+├── frontend/
+│   ├── src/
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── index.html
+├── screenshots/
+├── README.md
+└── .gitignore
+```
 
-## Running Locally
+## 5. Yêu cầu hệ thống
 
-1. **Fork & Clone:**
-    * **Fork** the repository to your GitHub account.
-    * Clone YOUR forked repository to your local machine:
+- Node.js >= 20
+- npm >= 10
 
-        ```bash
-        git clone https://github.com/YOUR_USERNAME/websockets-auction-platform.git
-        cd websockets-auction-platform
-        ```
+## 6. Hướng dẫn chạy dự án
 
-2. **Backend Setup:**
-    * Navigate to the backend directory:
+### Bước 1: Clone dự án
 
-        ```bash
-        cd backend
-        ```
+```bash
+git clone <repository-url>
+cd Nh-m-5
+```
 
-    * Install dependencies:
+### Bước 2: Cài đặt backend
 
-        ```bash
-        npm install
-        ```
+```bash
+cd backend
+npm install
+```
 
-    * **Create Environment File:** Create a `.env` file in the `backend` directory with the following content (adjust credentials as needed):
+Tạo file `.env` trong thư mục `backend` với nội dung như sau:
 
-        ```dotenv
-        # .env file for backend configuration
-        ADMIN_USERNAME=admin
-        ADMIN_PASSWORD=admin123
-        PORT=3000
-        ```
+```env
+PORT=3000
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin123
+```
 
-    * **Run the Backend Server:** This command starts the server using `nodemon` for automatic restarts on file changes. It runs both the Express REST API and the WebSocket server.
+Khởi động backend:
 
-        ```bash
-        npm run dev
-        ```
+```bash
+npm run dev
+```
 
-        The backend server will typically run on `http://localhost:3000`. The database file (`data/auction.db`) will be created automatically if it doesn't exist.
+Backend sẽ chạy tại:
 
-3. **Frontend Setup:**
-    * Open a **new terminal window/tab**.
-    * Navigate to the frontend directory:
+- API REST: http://localhost:3000
+- WebSocket: ws://localhost:3000
 
-        ```bash
-        cd frontend # Make sure you are in the root project directory first
-        ```
+### Bước 3: Cài đặt frontend
 
-    * Install dependencies:
+Mở terminal mới, sau đó chạy:
 
-        ```bash
-        npm install
-        ```
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-    * **Run the Frontend Development Server:**
+Frontend sẽ chạy tại port mặc định của Vite, thường là:
 
-        ```bash
-        npm run dev
-        ```
+- http://localhost:5173
 
-        The frontend development server (Vite) will start, usually on `http://localhost:5173` (check the terminal output for the exact URL).
+## 7. Cách sử dụng
 
-4. **Access the Application:**
-    * Open your web browser and navigate to the frontend URL provided in the terminal (e.g., `http://localhost:5173`).
+1. Mở giao diện frontend trên trình duyệt.
+2. Chọn một sản phẩm đấu giá.
+3. Nhập tên người tham gia.
+4. Đặt giá mới cao hơn giá hiện tại.
+5. Quan sát cập nhật trực tiếp trên giao diện khi có người đặt giá mới.
 
-You should now see the Live Auction Platform running, connecting to the backend, and displaying auction items. You can place bids using either the REST or WebSocket buttons.
+> Lưu ý: tên người đặt không được để trống và không nên dùng tên "Anonymous".
 
-## NOTE: The bidder name must NOT be "Anonymous" or empty. If you do that, you can't place a bid
+## 8. API chính
 
-## Debugging & Testing
+### REST API
+- `GET /api/items` - Lấy danh sách sản phẩm
+- `GET /api/items/:id` - Lấy chi tiết sản phẩm
+- `POST /api/bids` - Đặt giá mới
+- `GET /api/history` - Lấy lịch sử đấu giá
 
-* **Backend Debugging:** Use the terminal output to see logs for incoming requests, WebSocket connections, and errors.
-* **Frontend Debugging:** Use the browser's developer tools (F12) to inspect network requests, console logs, and WebSocket connections. You can find the WebSocket connection in the "Network" tab under "WS" / "Socket" (WebSocket) filter.
+### WebSocket
+- `INITIAL_DATA` - Gửi dữ liệu ban đầu khi client kết nối
+- `NEW_BID` - Thông báo khi có bid mới
+- `BID_UPDATE` - Cập nhật giá hiện tại
+- `ERROR` - Lỗi hệ thống
+- `HEARTBEAT` - Giữ kết nối WebSocket
 
-## Usage
+## 9. Ghi chú
 
-### To test the backend API
+- Dự án này là một demo thực hành về đấu giá thời gian thực.
+- Mục tiêu chính là minh họa cách truyền dữ liệu realtime bằng WebSocket thay vì chỉ dùng REST API cơ bản.
+- Nếu cần thử nghiệm ở nhiều tài khoản khác nhau, hãy mở nhiều tab hoặc nhiều trình duyệt khác nhau để mô phỏng nhiều người tham gia cùng lúc.
 
-* Use [Hoppscotch](https://hoppscotch.io/) to send requests to the REST API endpoints and WebSocket server.
-* The REST API is available at `http://localhost:3000/api/`.
-* The WebSocket server is available at `ws://localhost:3000/`.
-* List of available REST endpoints:
-  * `GET /api/items` - Get all auction items
-  * `GET /api/items/:id` - Get a specific auction item by ID
-  * `POST /api/bids` - Place a bid on an auction item (REST)
-  * `GET /api/history` - Get bid history for an auction item
-  * `GET /api/admin/login` - Admin login (requires admin username and password)
-  * `POST /api/admin/accept-bid` - Accept a specific bid (admin only)
-  * `POST /api/admin/timer/start` - Start the auction timer (admin only)
-  * `POST /api/admin/timer/stop` - Stop the auction timer (admin only)
-  * `GET /api/admin/bidders` - Get a list of connected bidders (admin only)
-  * `POST /api/admin/remove-bidder` - Kick a specific bidder (admin only)
-  * `GET /api/timer r` - Get the current auction timer state
+## 10. Hình ảnh minh họa
 
-* List of available WebSocket events:
-  * `INITIAL_DATA` - Sent when a client connects to the WebSocket server, containing the current state of all auction items.
-  * `HEARTBEAT` - Sent periodically to keep the connection alive.
-  * `REGISTER_BIDDER` - Sent when a new bidder connects, containing their name.
-  * `REGISTRATION_SUCCESSFUL` - Sent when a bidder successfully registers, containing their name.
-  * `BIDDER_LIST_UPDATE` - Sent when the list of connected bidders is updated, containing the list of current bidders.
-  * `ERROR` - Sent when an error occurs, containing the error message.
-  * `NEW_BID` - Sent when a new bid is placed, containing the auction item, bid amount, and bidder name.
-  * `BID_UPDATE` - Sent when a bid is updated, containing the auction item and updated bid details.
-  * `BID_ACCEPTED` - Sent when a bid is accepted by the admin, containing the auction item ID and accepted bid details.
-  * `REMOVED_BY_ADMIN` - Sent when a bidder is removed by the admin, containing the bidder's name.
-  * `TIMER_UPDATE` - Sent when the auction timer is updated.
-
-### To test the frontend
-
-* Open the frontend application in your web browser (e.g., `http://localhost:5173`). Use multiple browsers or incognito windows to simulate multiple bidders.
-* You can view the auction items, place bids, and see real-time updates.
-
-## Screenshots
-
-![Initial Platform (Frontend WebSocket)](screenshots/initial_load_ws_frontend.png)
-
-![Placed Bid (Frontend WebSocket)](screenshots/placed_bid_ws_frontend.png)
-
-![Placed Bid (Frontend REST)](screenshots/placed_bid_rest_frontend.png)
-
-![Hoppscotch Testing (Backend WebSocket)](screenshots/hoppscotch_ws_backend.png)
+Các ảnh chụp màn hình được lưu trong thư mục `screenshots/`.
