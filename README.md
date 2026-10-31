@@ -151,6 +151,4 @@ Frontend sẽ chạy tại port mặc định của Vite, thường là:
 - Mục tiêu chính là minh họa cách truyền dữ liệu realtime bằng WebSocket thay vì chỉ dùng REST API cơ bản.
 - Nếu cần thử nghiệm ở nhiều tài khoản khác nhau, hãy mở nhiều tab hoặc nhiều trình duyệt khác nhau để mô phỏng nhiều người tham gia cùng lúc.
 
-## 10. Hình ảnh minh họa
 
-Các ảnh chụp màn hình được lưu trong thư mục `screenshots/`.
