@@ -7,7 +7,7 @@ const auctionItems = [
     name: "Bộ sưu tập gốm sứ cổ",
     description: "Bộ sưu tập gốm sứ cổ mang phong cách truyền thống Việt Nam, được làm thủ công và có giá trị nghệ thuật cao.",
     image:
-      "https://images.unsplash.com/photo-1523170335258-f5ed11844a49?auto=format&fit=crop&w=900&q=80",
+      "https://images.unsplash.com/photo-1610701596061-2ecf227e85b2?auto=format&fit=crop&w=900&q=80",
     startingBid: 1200000,
     currentBid: 1200000,
     bids: [],

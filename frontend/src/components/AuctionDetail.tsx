@@ -6,12 +6,14 @@ import websocketService from "../services/websocket";
 
 const DetailContainer = styled.section`
   flex: 1;
+  min-width: 0;
   background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 24px;
   padding: 24px;
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
   backdrop-filter: blur(8px);
+  min-height: 720px;
 `;
 
 const ItemHeader = styled.div`
@@ -75,18 +77,107 @@ const BidForm = styled.form`
   margin-top: 18px;
 `;
 
+const BidInputWrap = styled.div`
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+`;
+
+const CountdownBadge = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.18);
+  color: #0369a1;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+`;
+
 const BidInput = styled.input`
-  padding: 13px 14px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 13px 48px 13px 14px;
   border: 1px solid #dbe2ea;
   border-radius: 12px;
   font-size: 1rem;
   background: white;
   transition: all 0.2s ease;
+  appearance: textfield;
+  -moz-appearance: textfield;
+
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
 
   &:focus {
     outline: none;
     border-color: #14b8a6;
     box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.14);
+  }
+`;
+
+const QuickSelectButton = styled.button`
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: #e2e8f0;
+  color: #0f172a;
+  font-size: 18px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    background: #cbd5e1;
+  }
+`;
+
+const QuickMenu = styled.div`
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  width: 100%;
+  box-sizing: border-box;
+  background: white;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 12px;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.12);
+  padding: 8px;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  overflow: hidden;
+`;
+
+const QuickOption = styled.button`
+  border: 1px solid rgba(14, 116, 144, 0.15);
+  background: linear-gradient(135deg, #f0fdfa 0%, #eff6ff 100%);
+  color: #0f172a;
+  border-radius: 10px;
+  padding: 10px 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:hover {
+    background: linear-gradient(135deg, #ccfbf1 0%, #dbeafe 100%);
   }
 `;
 
@@ -141,11 +232,12 @@ const BidList = styled.ul`
   list-style: none;
   padding: 0;
   margin: 0;
-  max-height: 240px;
+  max-height: 220px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  scrollbar-width: thin;
 `;
 
 const BidItem = styled.li`
@@ -186,6 +278,56 @@ const ErrorMessage = styled.div`
   font-weight: 600;
 `;
 
+const NotificationPanel = styled.div`
+  margin-top: 18px;
+  background: rgba(15, 23, 42, 0.96);
+  color: white;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 14px;
+  padding: 10px 14px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+`;
+
+const NotificationHeader = styled.div`
+  margin: 0 0 8px;
+  color: #bfdbfe;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+`;
+
+const NotificationList = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+`;
+
+const NotificationItem = styled.li`
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 0.86rem;
+`;
+
+const NotificationText = styled.span`
+  color: #e2e8f0;
+  line-height: 1.4;
+`;
+
+const NotificationTime = styled.span`
+  color: #93c5fd;
+  font-size: 0.72rem;
+  white-space: nowrap;
+`;
+
 const formatVND = (value: number) =>
   new Intl.NumberFormat("vi-VN", {
     style: "currency",
@@ -197,16 +339,22 @@ interface AuctionDetailProps {
   item: AuctionItem;
   bidderName: string;
   websocketConnected: boolean;
+  notifications?: Array<{ id: number; message: string; time: string }>;
 }
 
 const AuctionDetail: React.FC<AuctionDetailProps> = ({
   item,
   bidderName,
   websocketConnected,
+  notifications = [],
 }) => {
   const [bidAmount, setBidAmount] = useState<string>("");
   const [isPlacingBid, setIsPlacingBid] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [showQuickOptions, setShowQuickOptions] = useState<boolean>(false);
+  const [now, setNow] = useState<number>(Date.now());
+
+  const quickBidOptions = [10000, 20000, 50000, 100000, 500000];
 
   useEffect(() => {
     const defaultBid =
@@ -214,13 +362,50 @@ const AuctionDetail: React.FC<AuctionDetailProps> = ({
     setBidAmount(defaultBid.toString());
   }, [item]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
     return date.toLocaleTimeString();
   };
 
+  const formatQuickBidLabel = (amount: number) => `+${new Intl.NumberFormat("vi-VN").format(amount)}`;
+
+  const formatCountdown = (remainingMs: number) => {
+    if (remainingMs <= 0) {
+      return "Đã kết thúc";
+    }
+
+    const totalSeconds = Math.floor(remainingMs / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    return `${hours.toString().padStart(2, "0")}:${minutes
+      .toString()
+      .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  };
+
+  const auctionEndsAt = new Date(
+    (item.bids[0]?.timestamp ? new Date(item.bids[0].timestamp).getTime() : Date.now()) +
+      30 * 60 * 1000 +
+      (item.id % 4) * 5 * 60 * 1000
+  );
+  const timeRemaining = Math.max(0, auctionEndsAt.getTime() - now);
+
   const handleBidAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setBidAmount(e.target.value);
+    setError(null);
+  };
+
+  const applyQuickBid = (increment: number) => {
+    const base = item.bids.length > 0 ? item.currentBid : item.startingBid;
+    const nextBid = base + increment;
+    setBidAmount(nextBid.toString());
+    setShowQuickOptions(false);
     setError(null);
   };
 
@@ -237,18 +422,24 @@ const AuctionDetail: React.FC<AuctionDetailProps> = ({
     return true;
   };
 
-  const handleRestBid = async (e: React.FormEvent) => {
+  const handleSubmitBid = (e: React.FormEvent) => {
     e.preventDefault();
 
     const bidValue = parseFloat(bidAmount);
     if (!validateBid(bidValue)) return;
 
+    if (!websocketConnected) {
+      setError("WebSocket chưa kết nối. Không thể đặt giá.");
+      return;
+    }
+
     try {
       setIsPlacingBid(true);
-      await placeBid(item.id, bidValue, bidderName);
+      setBidAmount(bidValue.toString());
+      websocketService.sendBid(item.id, bidValue, bidderName);
     } catch (err) {
-      console.error("Lỗi khi đặt giá qua REST:", err);
-      setError("Đặt giá qua REST thất bại. Vui lòng thử lại.");
+      console.error("Lỗi khi đặt giá qua WebSocket:", err);
+      setError("Gửi đặt giá thất bại. Vui lòng thử lại.");
     } finally {
       setIsPlacingBid(false);
     }
@@ -267,6 +458,7 @@ const AuctionDetail: React.FC<AuctionDetailProps> = ({
 
     try {
       setIsPlacingBid(true);
+      setBidAmount(bidValue.toString());
       websocketService.sendBid(item.id, bidValue, bidderName);
     } catch (err) {
       console.error("Lỗi khi đặt giá qua WebSocket:", err);
@@ -285,37 +477,50 @@ const AuctionDetail: React.FC<AuctionDetailProps> = ({
       </ItemHeader>
 
       <BidInfo>
+        <CountdownBadge>⏱ {formatCountdown(timeRemaining)}</CountdownBadge>
         <CurrentBid>Giá hiện tại: {formatVND(item.currentBid)}</CurrentBid>
         <StartingBid>Giá khởi điểm: {formatVND(item.startingBid)}</StartingBid>
       </BidInfo>
 
       {error && <ErrorMessage>{error}</ErrorMessage>}
 
-      <BidForm onSubmit={handleRestBid}>
-        <BidInput
-          type="number"
-          value={bidAmount}
-          onChange={handleBidAmountChange}
-          placeholder="Nhập số tiền đặt giá"
-          min={item.currentBid + 1}
-          step="1"
-          required
-        />
+      <BidForm onSubmit={handleSubmitBid}>
+        <BidInputWrap>
+          <BidInput
+            type="number"
+            inputMode="numeric"
+            value={bidAmount}
+            onChange={handleBidAmountChange}
+            placeholder="Nhập số tiền đặt giá"
+            min={item.currentBid + 1}
+            step="1"
+            required
+            onClick={() => setShowQuickOptions((prev) => !prev)}
+          />
+          <QuickSelectButton
+            type="button"
+            aria-label="Mở lựa chọn mức đặt giá nhanh"
+            onClick={() => setShowQuickOptions((prev) => !prev)}
+          >
+            ▾
+          </QuickSelectButton>
+          {showQuickOptions && (
+            <QuickMenu>
+              {quickBidOptions.map((amount) => (
+                <QuickOption
+                  key={amount}
+                  type="button"
+                  onClick={() => applyQuickBid(amount)}
+                >
+                  {formatQuickBidLabel(amount)}
+                </QuickOption>
+              ))}
+            </QuickMenu>
+          )}
+        </BidInputWrap>
         <ButtonRow>
           <BidButton
             type="submit"
-            disabled={isPlacingBid || !bidderName || bidderName === "Khách"}
-            $isRest={true}
-          >
-            Đặt giá qua REST API
-          </BidButton>
-
-          <BidButton
-            type="button"
-            onClick={(e) => {
-              const fakeEvent = e as unknown as React.FormEvent;
-              handleWebSocketBid(fakeEvent);
-            }}
             disabled={
               isPlacingBid ||
               !bidderName ||
@@ -324,7 +529,7 @@ const AuctionDetail: React.FC<AuctionDetailProps> = ({
             }
             $isRest={false}
           >
-            WebSocket
+            Đặt mức giá
           </BidButton>
         </ButtonRow>
       </BidForm>
@@ -351,6 +556,20 @@ const AuctionDetail: React.FC<AuctionDetailProps> = ({
           </BidList>
         )}
       </BidHistory>
+
+      {notifications.length > 0 && (
+        <NotificationPanel>
+          <NotificationHeader>Thông báo</NotificationHeader>
+          <NotificationList>
+            {notifications.map((notification) => (
+              <NotificationItem key={notification.id}>
+                <NotificationText>{notification.message}</NotificationText>
+                <NotificationTime>{notification.time}</NotificationTime>
+              </NotificationItem>
+            ))}
+          </NotificationList>
+        </NotificationPanel>
+      )}
     </DetailContainer>
   );
 };

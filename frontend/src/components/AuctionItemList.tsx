@@ -2,8 +2,9 @@ import styled from "styled-components";
 import { AuctionItem } from "../types/auction";
 
 const ListContainer = styled.aside`
-  width: 32%;
-  min-width: 290px;
+  width: 38%;
+  min-width: 320px;
+  max-width: 440px;
   background: rgba(255, 255, 255, 0.8);
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 24px;
@@ -12,6 +13,18 @@ const ListContainer = styled.aside`
   backdrop-filter: blur(8px);
   position: sticky;
   top: 20px;
+  align-self: flex-start;
+  min-height: 720px;
+  height: auto;
+  overflow: visible;
+
+  @media (max-width: 980px) {
+    width: 100%;
+    max-width: none;
+    min-height: auto;
+    position: static;
+    overflow: visible;
+  }
 `;
 
 const ListTitle = styled.h2`
@@ -58,7 +71,7 @@ const ItemCard = styled.li<{ selected: boolean }>`
 
 const ItemImage = styled.img`
   width: 100%;
-  height: 160px;
+  height: 180px;
   object-fit: cover;
   border-radius: 12px;
   margin-bottom: 12px;

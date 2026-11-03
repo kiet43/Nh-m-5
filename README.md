@@ -15,12 +15,19 @@ Dự án phù hợp để minh họa sự khác biệt giữa thao tác truyền
 ## 2. Tính năng
 
 ### Người dùng
+- Đăng nhập hoặc đăng ký tài khoản người dùng
 - Xem danh sách các vật phẩm đang đấu giá
-- Xem chi tiết sản phẩm, giá khởi điểm và giá hiện tại
-- Đặt giá bằng cách nhập tên người đặt và mức giá
+- Chọn sản phẩm để xem chi tiết, giá khởi điểm và giá hiện tại
+- Đặt mức giá mới cao hơn giá hiện tại
 - Theo dõi lịch sử đặt giá theo thời gian thực
 - Nhận thông báo khi có người đặt giá mới
 - Kiểm tra trạng thái kết nối WebSocket
+
+### Quản trị viên
+- Đăng nhập bằng tài khoản admin
+- Quản lý sản phẩm: thêm, sửa và xoá sản phẩm đấu giá
+- Theo dõi thống kê tổng sản phẩm, tổng lượt bid và giá cao nhất
+- Duy trì giao diện quản trị riêng biệt khỏi giao diện người dùng
 
 ### Backend
 - Cung cấp API REST để lấy dữ liệu và đặt giá
@@ -123,12 +130,17 @@ Frontend sẽ chạy tại port mặc định của Vite, thường là:
 ## 7. Cách sử dụng
 
 1. Mở giao diện frontend trên trình duyệt.
-2. Chọn một sản phẩm đấu giá.
-3. Nhập tên người tham gia.
-4. Đặt giá mới cao hơn giá hiện tại.
+2. Đăng nhập bằng tài khoản người dùng hoặc tài khoản admin.
+3. Chọn một sản phẩm đấu giá.
+4. Nhập mức giá mới cao hơn giá hiện tại.
 5. Quan sát cập nhật trực tiếp trên giao diện khi có người đặt giá mới.
 
-> Lưu ý: tên người đặt không được để trống và không nên dùng tên "Anonymous".
+> Luồng chính: Đăng nhập → Chọn sản phẩm → Đặt mức giá.
+
+### Với admin
+- Đăng nhập vào tài khoản admin để truy cập giao diện quản trị.
+- Thêm, sửa hoặc xoá sản phẩm đấu giá theo yêu cầu.
+- Theo dõi dữ liệu thống kê và trạng thái sản phẩm nhanh chóng.
 
 ## 8. API chính
 

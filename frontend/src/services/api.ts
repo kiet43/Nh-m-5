@@ -51,13 +51,55 @@ export const placeBid = async (
   bidAmount: number,
   bidder: string
 ): Promise<Bid> => {
-  // Make a POST request to the '/bids' endpoint.
-  // The request body contains the itemId, bidAmount, and bidder.
   const response = await api.post<Bid>("/bids", {
     itemId,
     bidAmount,
     bidder,
   });
-  // Return the data part of the response (the newly created bid details).
+  return response.data;
+};
+
+export const adminLogin = async (
+  username: string,
+  password: string
+): Promise<{ success: boolean; message?: string; error?: string }> => {
+  const response = await api.post<{ success: boolean; message?: string; error?: string }>(
+    "/admin/login",
+    { username, password }
+  );
+  return response.data;
+};
+
+export const createAuctionItem = async (payload: {
+  name: string;
+  description: string;
+  image?: string;
+  startingBid: number;
+}): Promise<{ success: boolean; item: AuctionItem }> => {
+  const response = await api.post<{ success: boolean; item: AuctionItem }>(
+    "/admin/items",
+    payload
+  );
+  return response.data;
+};
+
+export const updateAuctionItem = async (
+  id: number,
+  payload: {
+    name: string;
+    description: string;
+    image?: string;
+    startingBid: number;
+  }
+): Promise<{ success: boolean; item: AuctionItem }> => {
+  const response = await api.put<{ success: boolean; item: AuctionItem }>(
+    `/admin/items/${id}`,
+    payload
+  );
+  return response.data;
+};
+
+export const deleteAuctionItem = async (id: number): Promise<{ success: boolean; message: string }> => {
+  const response = await api.delete<{ success: boolean; message: string }>(`/admin/items/${id}`);
   return response.data;
 };

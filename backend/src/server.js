@@ -33,7 +33,7 @@ const defaultAuctionItems = [
     name: "Bộ sưu tập gốm sứ cổ",
     description: "Bộ sưu tập gốm sứ cổ mang phong cách truyền thống Việt Nam, được làm thủ công và có giá trị nghệ thuật cao.",
     image:
-      "https://images.unsplash.com/photo-1523170335258-f5ed11844a49?auto=format&fit=crop&w=900&q=80",
+      "https://images.unsplash.com/photo-1610701596061-2ecf227e85b2?auto=format&fit=crop&w=900&q=80",
     startingBid: 1200000,
     currentBid: 1200000,
   },
@@ -343,6 +343,123 @@ app.post("/api/admin/login", (req, res) => {
       success: false,
       error: "Thông tin đăng nhập không hợp lệ",
     });
+  }
+});
+
+/**
+ * POST /api/admin/items - Create a new auction item
+ */
+app.post("/api/admin/items", authenticateAdmin, async (req, res) => {
+  const { name, description, image, startingBid } = req.body;
+
+  if (!name || !description || !startingBid) {
+    return res.status(400).json({ error: "Tên, mô tả và giá khởi điểm là bắt buộc" });
+  }
+
+  const parsedStartingBid = Number(startingBid);
+  if (Number.isNaN(parsedStartingBid) || parsedStartingBid <= 0) {
+    return res.status(400).json({ error: "Giá khởi điểm phải là số lớn hơn 0" });
+  }
+
+  const nextId = auctionItems.length === 0 ? 1 : Math.max(...auctionItems.map((item) => item.id)) + 1;
+  const newItem = {
+    id: nextId,
+    name: name.trim(),
+    description: description.trim(),
+    image: image || "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=900&q=80",
+    startingBid: parsedStartingBid,
+    currentBid: parsedStartingBid,
+    bids: [],
+  };
+
+  try {
+    await db.run(
+      "INSERT INTO auction_items (id, name, description, image, startingBid, currentBid) VALUES (?, ?, ?, ?, ?, ?)",
+      [newItem.id, newItem.name, newItem.description, newItem.image, newItem.startingBid, newItem.currentBid]
+    );
+
+    auctionItems = [...auctionItems, newItem];
+    broadcastItemListUpdate();
+
+    res.status(201).json({ success: true, item: newItem });
+  } catch (error) {
+    console.error("Error creating auction item:", error);
+    res.status(500).json({ error: "Không thể tạo sản phẩm đấu giá" });
+  }
+});
+
+/**
+ * PUT /api/admin/items/:id - Update an existing auction item
+ */
+app.put("/api/admin/items/:id", authenticateAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { name, description, image, startingBid } = req.body;
+
+  const item = auctionItems.find((currentItem) => currentItem.id === Number(id));
+  if (!item) {
+    return res.status(404).json({ error: "Không tìm thấy sản phẩm" });
+  }
+
+  if (!name || !description || !startingBid) {
+    return res.status(400).json({ error: "Tên, mô tả và giá khởi điểm là bắt buộc" });
+  }
+
+  const parsedStartingBid = Number(startingBid);
+  if (Number.isNaN(parsedStartingBid) || parsedStartingBid <= 0) {
+    return res.status(400).json({ error: "Giá khởi điểm phải là số lớn hơn 0" });
+  }
+
+  const nextCurrentBid = Math.max(item.currentBid, parsedStartingBid);
+
+  try {
+    await db.run(
+      "UPDATE auction_items SET name = ?, description = ?, image = ?, startingBid = ?, currentBid = ? WHERE id = ?",
+      [name.trim(), description.trim(), image || item.image, parsedStartingBid, nextCurrentBid, id]
+    );
+
+    auctionItems = auctionItems.map((currentItem) =>
+      currentItem.id === Number(id)
+        ? {
+            ...currentItem,
+            name: name.trim(),
+            description: description.trim(),
+            image: image || currentItem.image,
+            startingBid: parsedStartingBid,
+            currentBid: nextCurrentBid,
+          }
+        : currentItem
+    );
+
+    broadcastItemListUpdate();
+    res.json({ success: true, item: auctionItems.find((currentItem) => currentItem.id === Number(id)) });
+  } catch (error) {
+    console.error("Error updating auction item:", error);
+    res.status(500).json({ error: "Không thể cập nhật sản phẩm đấu giá" });
+  }
+});
+
+/**
+ * DELETE /api/admin/items/:id - Delete an auction item
+ */
+app.delete("/api/admin/items/:id", authenticateAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  const item = auctionItems.find((currentItem) => currentItem.id === Number(id));
+  if (!item) {
+    return res.status(404).json({ error: "Không tìm thấy sản phẩm" });
+  }
+
+  try {
+    await db.run("DELETE FROM bids WHERE itemId = ?", [id]);
+    await db.run("DELETE FROM auction_items WHERE id = ?", [id]);
+
+    auctionItems = auctionItems.filter((currentItem) => currentItem.id !== Number(id));
+    broadcastItemListUpdate();
+
+    res.json({ success: true, message: "Đã xoá sản phẩm khỏi phiên đấu giá" });
+  } catch (error) {
+    console.error("Error deleting auction item:", error);
+    res.status(500).json({ error: "Không thể xoá sản phẩm" });
   }
 });
 
@@ -705,6 +822,26 @@ function broadcastBidderListUpdate() {
         JSON.stringify({
           type: "BIDDER_LIST_UPDATE",
           bidders: Array.from(connectedBidders.keys()),
+        })
+      );
+    }
+  });
+}
+
+function broadcastItemListUpdate() {
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(
+        JSON.stringify({
+          type: "INITIAL_DATA",
+          items: auctionItems,
+          timerData: {
+            biddingActive,
+            countdownEndTime,
+            remainingSeconds: countdownEndTime
+              ? Math.max(0, Math.floor((countdownEndTime - new Date()) / 1000))
+              : null,
+          },
         })
       );
     }
