@@ -1,0 +1,10 @@
+{
+  "name": "live-auction",
+  "version": "1.0.0",
+  "description": "Sàn đấu giá thời gian thực dùng WebSocket (Node.js + ws), không cần database.",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "ws": "^8.18.0" },
+  "license": "MIT"
+}

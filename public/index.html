@@ -1,0 +1,1115 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live Auction – Đấu giá thời gian thực</title>
+<style>
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Merriweather:wght@700;800&display=swap');
+
+:root {
+  --bg: #f3f6fb;
+  --card: rgba(255,255,255,0.9);
+  --ink: #142130;
+  --mute: #5b6977;
+  --line: #dde6ef;
+  --acc: #0f766e;
+  --acc-2: #14b8a6;
+  --accfg: #ffffff;
+  --ok: #0c7a46;
+  --okbg: #eafaf2;
+  --warn: #b45309;
+  --warnbg: #fff0d6;
+  --bad: #c93b32;
+  --badbg: #ffe6e3;
+  --shadow: 0 14px 28px rgba(17, 24, 39, 0.08);
+  --shadow-soft: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0c1218;
+    --card: rgba(18, 26, 33, 0.88);
+    --ink: #edf3fb;
+    --mute: #9aa9b6;
+    --line: #273644;
+    --acc: #2dd4bf;
+    --acc-2: #5eead4;
+    --accfg: #062b28;
+    --ok: #6ee7a9;
+    --okbg: rgba(20, 83, 45, 0.35);
+    --warn: #fbbf24;
+    --warnbg: rgba(120, 74, 7, 0.38);
+    --bad: #fca5a5;
+    --badbg: rgba(127, 29, 29, 0.38);
+    --shadow: 0 18px 34px rgba(2, 6, 23, 0.42);
+    --shadow-soft: 0 10px 26px rgba(2, 6, 23, 0.3);
+  }
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, rgba(20, 184, 166, 0.12), transparent 35%),
+    linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0) 20%),
+    var(--bg);
+  color: var(--ink);
+  font-family: 'Inter', 'Segoe UI', 'Noto Sans', sans-serif;
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+}
+
+h1, h2, h3, h4, .price, .title-strong {
+  font-family: 'Merriweather', 'Georgia', serif;
+  letter-spacing: -0.03em;
+}
+
+.num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
+
+input, select, textarea, button {
+  font: inherit;
+  color: inherit;
+}
+
+input, select, textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.58);
+  padding: 10px 12px;
+  color: var(--ink);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+@media (prefers-color-scheme: dark) {
+  input, select, textarea {
+    background: rgba(15, 23, 32, 0.7);
+  }
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--acc);
+  box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.15);
+}
+
+button {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--ink);
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-soft);
+}
+
+button.pri {
+  background: linear-gradient(135deg, var(--acc), var(--acc-2));
+  border-color: transparent;
+  color: var(--accfg);
+  box-shadow: 0 10px 18px rgba(15, 118, 110, 0.22);
+}
+
+button:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; transform: none; }
+:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: rgba(255,255,255,0.75);
+  border-bottom: 1px solid rgba(221,230,239,0.9);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 6px 16px rgba(15,23,42,0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  header {
+    background: rgba(12, 18, 24, 0.72);
+    border-bottom-color: rgba(39,54,68,0.9);
+  }
+}
+
+header h1 {
+  margin: 0;
+  font-size: clamp(1.2rem, 2vw, 1.6rem);
+  font-weight: 800;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--mute);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--bad);
+  box-shadow: 0 0 0 5px rgba(201, 59, 50, 0.12);
+}
+.dot.on {
+  background: #16a34a;
+  box-shadow: 0 0 0 5px rgba(22, 163, 74, 0.12);
+}
+
+.wrap {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 22px 20px 40px;
+}
+
+.intro {
+  background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(236,246,247,0.75));
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 18px 20px 16px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-soft);
+}
+
+@media (prefers-color-scheme: dark) {
+  .intro {
+    background: linear-gradient(135deg, rgba(18,26,33,0.9), rgba(12,18,24,0.7));
+  }
+}
+
+.intro h2 {
+  margin: 0 0 8px;
+  font-size: clamp(1.3rem, 2vw, 1.8rem);
+}
+
+.intro p { margin: 0 0 12px; color: var(--mute); }
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: s;
+}
+
+.steps li {
+  counter-increment: s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: 14px;
+  background: rgba(255,255,255,0.3);
+}
+
+.steps li::before {
+  content: counter(s);
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--acc), var(--acc-2));
+  color: var(--accfg);
+  font-size: 12px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.intro .row { margin-top: 12px; }
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.bar input {
+  flex: 1 1 240px;
+  width: auto;
+}
+
+.bar select { width: auto; }
+
+.count {
+  margin: 0 0 14px;
+  color: var(--mute);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 18px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(246,249,252,0.9));
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+@media (prefers-color-scheme: dark) {
+  .card {
+    background: linear-gradient(180deg, rgba(17, 24, 33, 0.95), rgba(18, 26, 33, 0.9));
+  }
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(20,184,166,0.65);
+  box-shadow: var(--shadow);
+}
+
+.card.over { opacity: 0.82; }
+
+.thumb {
+  position: relative;
+  height: 154px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, rgba(148,163,184,0.18), rgba(148,163,184,0.08));
+  color: var(--mute);
+  font-weight: 600;
+  overflow: hidden;
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: var(--okbg);
+  color: var(--ok);
+  box-shadow: 0 6px 14px rgba(15, 118, 110, 0.08);
+}
+
+.badge.hot {
+  background: var(--warnbg);
+  color: var(--warn);
+}
+
+.badge.end {
+  background: rgba(148,163,184,0.18);
+  color: var(--mute);
+}
+
+.star {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.75);
+  border: 1px solid rgba(148,163,184,0.35);
+  color: var(--mute);
+  font-size: 18px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.star.on { color: #f59e0b; background: rgba(254,243,199,0.8); }
+
+.body {
+  display: grid;
+  gap: 7px;
+  padding: 12px;
+  flex: 1;
+}
+
+.body h3 {
+  margin: 0;
+  font-size: 1.02rem;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lbl {
+  color: var(--mute);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.price {
+  font-size: clamp(1.3rem, 2vw, 1.8rem);
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--mute);
+  font-size: 13px;
+}
+
+.left { font-weight: 700; color: var(--ink); }
+.left.hot { color: var(--warn); }
+
+.me {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.me.lead { background: var(--okbg); color: var(--ok); }
+.me.out { background: var(--badbg); color: var(--bad); }
+.me.own { background: rgba(148,163,184,0.14); color: var(--mute); }
+
+.cta {
+  margin: 0 12px 12px;
+  text-align: center;
+}
+
+.flash {
+  animation: flashPulse 1.2s ease-in-out;
+}
+
+@keyframes flashPulse {
+  0% { box-shadow: inset 0 0 0 0 rgba(251,191,36,0.8); }
+  50% { box-shadow: inset 0 0 0 5px rgba(251,191,36,0.12); }
+  100% { box-shadow: inset 0 0 0 0 transparent; }
+}
+
+.empty {
+  grid-column: 1 / -1;
+  padding: 34px 18px;
+  border: 1px dashed var(--line);
+  border-radius: 16px;
+  text-align: center;
+  color: var(--mute);
+  background: rgba(255,255,255,0.2);
+}
+
+aside {
+  position: sticky;
+  top: 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.88), rgba(246,248,251,0.84));
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 16px 16px 14px;
+  box-shadow: var(--shadow-soft);
+}
+
+@media (prefers-color-scheme: dark) {
+  aside {
+    background: linear-gradient(180deg, rgba(19, 27, 34, 0.9), rgba(16, 22, 29, 0.8));
+  }
+}
+
+aside h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+aside .sub {
+  margin: 6px 0 12px;
+  color: var(--mute);
+  font-size: 13px;
+}
+
+.say {
+  min-height: 76px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border-left: 4px solid var(--acc);
+  background: linear-gradient(135deg, rgba(20,184,166,0.08), rgba(255,255,255,0.75));
+  font-style: italic;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+@media (prefers-color-scheme: dark) {
+  .say {
+    background: linear-gradient(135deg, rgba(20,184,166,0.12), rgba(15, 23, 32, 0.6));
+  }
+}
+
+.old {
+  margin: 10px 0 0;
+  color: var(--mute);
+  font-size: 12px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 10px;
+}
+
+.chips button {
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  background: rgba(148,163,184,0.09);
+}
+
+aside form {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+aside form input { flex: 1; width: auto; }
+
+aside label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--mute);
+  font-size: 13px;
+}
+
+aside label input { width: auto; }
+
+.src {
+  float: right;
+  color: var(--mute);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+#toasts {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  display: grid;
+  gap: 10px;
+  z-index: 99;
+  max-width: 360px;
+  width: min(90vw, 360px);
+}
+
+.toast {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(17,24,39,0.92);
+  color: #edf3ff;
+  box-shadow: 0 18px 32px rgba(15,23,42,0.2);
+  border: 1px solid rgba(148,163,184,0.18);
+}
+
+.toast.err { background: linear-gradient(135deg, var(--bad), #b91c1c); }
+
+.link {
+  background: none;
+  border: 0;
+  color: var(--acc);
+  padding: 0;
+  text-decoration: underline;
+}
+
+.thumbs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.thumbs img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+
+#imgPrev { margin-bottom: 10px; }
+
+dialog {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: linear-gradient(180deg, var(--card), rgba(255,255,255,0.92));
+  color: var(--ink);
+  padding: 20px;
+  width: min(580px, 94vw);
+  box-shadow: var(--shadow);
+}
+
+@media (prefers-color-scheme: dark) {
+  dialog {
+    background: linear-gradient(180deg, rgba(18, 26, 33, 0.96), rgba(14, 20, 26, 0.96));
+  }
+}
+
+dialog::backdrop { background: rgba(15, 23, 42, 0.46); backdrop-filter: blur(3px); }
+
+dialog h2 {
+  margin: 0 0 4px;
+  font-size: clamp(1.2rem, 2vw, 1.8rem);
+}
+
+.hint {
+  margin: 0 0 12px;
+  color: var(--mute);
+  font-size: 13px;
+}
+
+label.f {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--mute);
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.row > * { flex: 1; }
+
+.pbox {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin: 12px 0;
+  background: rgba(255,255,255,0.45);
+}
+
+.pbox .price { font-size: 30px; }
+
+.notice {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--warnbg);
+  color: var(--warn);
+  font-size: 14px;
+  margin: 10px 0;
+}
+
+.rules { font-size: 13px; color: var(--mute); margin: 8px 0; }
+
+h4 { margin: 16px 0 6px; font-size: 14px; }
+
+.hist {
+  max-height: 170px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.25);
+}
+
+.hist div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.hist div:last-child { border-bottom: 0; }
+
+dialog.room {
+  width: min(1060px, 96vw);
+  height: min(88vh, 780px);
+  padding: 0;
+}
+
+dialog.room[open] { display: flex; flex-direction: column; }
+
+.rhead {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255,255,255,0.35);
+}
+
+.rhead h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.rhead .hint { margin: 0; }
+
+.rbody {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 350px;
+  min-height: 0;
+}
+
+#rLeft { overflow: auto; padding: 16px 18px; }
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-left: 1px solid var(--line);
+  background: rgba(255,255,255,0.2);
+}
+
+.members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255,255,255,0.35);
+  max-height: 84px;
+  overflow: auto;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(148,163,184,0.08);
+}
+
+.chip.seller {
+  border-color: rgba(20,184,166,0.6);
+  background: rgba(20,184,166,0.08);
+  color: var(--acc);
+}
+
+.feed {
+  flex: 1;
+  overflow: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(255,255,255,0.08);
+}
+
+.m {
+  max-width: 92%;
+  width: fit-content;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.m.me {
+  align-self: flex-end;
+  background: var(--okbg);
+  border-color: transparent;
+}
+
+.m.bid {
+  align-self: stretch;
+  max-width: 100%;
+  background: var(--okbg);
+  color: var(--ok);
+  font-weight: 700;
+  border-color: transparent;
+}
+
+.m.sys {
+  align-self: center;
+  max-width: 100%;
+  background: transparent;
+  border: 0;
+  color: var(--mute);
+  font-size: 12px;
+  text-align: center;
+}
+
+.m.mc {
+  align-self: stretch;
+  max-width: 100%;
+  border-left: 4px solid var(--acc);
+  font-style: italic;
+  font-family: 'Merriweather', Georgia, serif;
+  background: rgba(20, 184, 166, 0.04);
+}
+
+.typing {
+  min-height: 18px;
+  padding: 0 12px 8px;
+  color: var(--mute);
+  font-size: 12px;
+}
+
+@media (max-width: 860px) {
+  .rbody { grid-template-columns: 1fr; grid-template-rows: minmax(0, 45%) minmax(0, 1fr); }
+  .chat { border-left: 0; border-top: 1px solid var(--line); }
+  dialog.room { height: 92vh; }
+}
+</style>
+
+</head>
+<body>
+<header>
+  <h1>Live Auction</h1>
+  <div class="status"><span class="dot" id="dot"></span><span id="conn">Đang kết nối…</span><span>·</span><span id="online" class="num">0 online</span></div>
+  <div class="row" style="flex:0 0 auto" id="userbox"></div>
+</header>
+
+<div class="wrap">
+  <section class="intro" id="intro">
+    <h2>Đấu giá trực tiếp, giá cập nhật từng giây</h2>
+    <p>Mọi người cùng thấy một mức giá, cùng một đồng hồ đếm ngược. Không cần tải lại trang.</p>
+    <ol class="steps">
+      <li><b>Đăng nhập</b> bằng tên và mật khẩu, không cần email.</li>
+      <li><b>Vào phòng</b> của một phiên đang diễn ra: xem giá, chat với mọi người và nhập giá bạn muốn trả.</li>
+      <li><b>Hết giờ</b>, người trả giá cao nhất thắng. Bid trong 30 giây cuối được cộng thêm 30 giây.</li>
+    </ol>
+    <div class="row" style="margin-top:12px"><button class="pri" id="introLogin">Bắt đầu: đăng nhập / đăng ký</button><button id="introClose">Ẩn hướng dẫn</button></div>
+  </section>
+
+  <div class="layout">
+    <section>
+      <div class="bar">
+        <input id="q" type="search" placeholder="Tìm sản phẩm hoặc người bán" aria-label="Tìm kiếm">
+        <select id="cat" aria-label="Danh mục"><option value="">Mọi danh mục</option></select>
+        <select id="filter" aria-label="Hiển thị"><option value="active">Đang diễn ra</option><option value="ended">Đã kết thúc</option><option value="mine">Tôi tham gia</option><option value="watch">Đang theo dõi ★</option><option value="all">Tất cả</option></select>
+        <select id="sort" aria-label="Sắp xếp"><option value="soon">Sắp kết thúc trước</option><option value="new">Mới đăng trước</option><option value="high">Giá cao trước</option><option value="hot">Nhiều lượt trả giá</option></select>
+        <button class="pri" id="btnCreate">+ Đăng sản phẩm đấu giá</button>
+      </div>
+      <p class="count" id="count"></p>
+      <div class="grid" id="grid"></div>
+    </section>
+
+    <aside aria-label="MC đấu giá AI">
+      <h2>MC AI “Búa Vàng” <span class="src" id="mcSrc"></span></h2>
+      <p class="sub">Bình luận mỗi khi có bid, đếm ngược và gõ búa. Bạn cũng có thể hỏi MC.</p>
+      <div class="say" id="mcSay" aria-live="polite">Chưa có gì để bình luận. MC sẽ lên tiếng khi có phiên mới.</div>
+      <div class="old" id="mcOld"></div>
+      <div class="chips" id="chips"></div>
+      <form id="fMc"><input id="mcQ" maxlength="200" placeholder="Hỏi MC…" aria-label="Hỏi MC"><button>Hỏi</button></form>
+      <label><input type="checkbox" id="mcVoice"> Đọc to lời MC</label>
+    </aside>
+  </div>
+</div>
+
+<dialog id="dAuth"><form id="fAuth">
+  <h2 id="authTitle">Đăng nhập</h2>
+  <p class="hint">Cần tài khoản để đặt giá và đăng sản phẩm. Xem phiên đấu giá thì không cần.</p>
+  <label class="f">Tên đăng nhập (3–20 ký tự: chữ, số, _)<input name="username" required minlength="3" maxlength="20" autocomplete="username"></label>
+  <label class="f">Mật khẩu (tối thiểu 6 ký tự)<input name="password" type="password" required minlength="6" maxlength="64" autocomplete="current-password"></label>
+  <div class="row"><button class="pri" id="authGo">Đăng nhập</button><button type="button" id="authClose">Đóng</button></div>
+  <p><button type="button" class="link" id="authSwitch"></button></p>
+</form></dialog>
+
+<dialog id="dCreate"><form id="fCreate">
+  <h2>Đăng sản phẩm đấu giá</h2>
+  <p class="hint">Sau khi đăng, mọi người thấy ngay và có thể bắt đầu trả giá.</p>
+  <label class="f">Tên sản phẩm<input name="title" required minlength="3" maxlength="80" placeholder="VD: Đồng hồ cơ cổ 1980"></label>
+  <label class="f">Mô tả (tình trạng, xuất xứ…)<textarea name="desc" rows="3" maxlength="500"></textarea></label>
+  <label class="f">Ảnh sản phẩm: tối đa 4 ảnh, tự thu nhỏ trước khi tải lên (bấm vào ảnh để xoá)<input type="file" id="imgFiles" accept="image/*" multiple></label>
+  <div class="thumbs" id="imgPrev"></div>
+  <div class="row">
+    <label class="f">Danh mục<select name="category" id="catSel"></select></label>
+    <label class="f">Giá mua ngay (₫, bỏ trống nếu không dùng)<input name="buyNow" type="number" min="0" step="1000"></label>
+  </div>
+  <div class="row">
+    <label class="f">Giá khởi điểm (₫)<input name="startPrice" type="number" min="1000" step="1000" value="100000" required></label>
+    <label class="f">Mỗi lần tăng tối thiểu (₫)<input name="increment" type="number" min="1" step="1000" value="10000" required></label>
+    <label class="f">Diễn ra trong (phút)<input name="minutes" type="number" min="1" max="10080" value="10" required></label>
+  </div>
+  <p class="hint" id="endPreview"></p>
+  <div class="row"><button class="pri">Đăng ngay</button><button type="button" data-close>Huỷ</button></div>
+</form></dialog>
+
+<dialog id="dView" class="room">
+  <div class="rhead"><div><h2 id="rTitle"></h2><p class="hint" id="rSub"></p></div>
+    <div class="row" style="flex:0 0 auto"><button id="rCopy">Sao chép link phòng</button><button id="rClose">Rời phòng</button></div></div>
+  <div class="rbody">
+    <div id="rLeft"></div>
+    <div class="chat">
+      <div class="members" id="rMembers"></div>
+      <div class="feed" id="rFeed" role="log" aria-live="polite"></div>
+      <div class="typing" id="rTyping"></div>
+      <form id="fChat" class="row"><input id="chatIn" maxlength="300" autocomplete="off" aria-label="Tin nhắn"><button class="pri">Gửi</button></form>
+    </div>
+  </div>
+</dialog>
+<div id="toasts" aria-live="polite"></div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const h = (tag, a = {}, ...kids) => { // dựng DOM an toàn, không dùng innerHTML (chống XSS)
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(a)) k === 'class' ? e.className = v : k.startsWith('on') ? e.addEventListener(k.slice(2), v) : e.setAttribute(k, v);
+  e.append(...kids.flat(Infinity).filter(x => x != null)); return e;
+};
+const money = n => new Intl.NumberFormat('vi-VN').format(n) + ' ₫';
+const nowS = () => Date.now() + offset;
+let watch = new Set(), pending = [], uploading = 0;
+let ws, retry = 0, offset = 0, user = null, token = localStorage.getItem('token'), sel = null, mode = 'login';
+const auctions = new Map(), mcLog = [];
+
+function toast(msg, err) { const t = h('div', { class: 'toast' + (err ? ' err' : '') }, msg); $('#toasts').append(t); setTimeout(() => t.remove(), 5000); }
+function send(t, d = {}) { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t, ...d })); else toast('Mất kết nối, đang thử lại…', true); }
+function connect() {
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+  ws.onopen = () => { retry = 0; $('#dot').className = 'dot on'; $('#conn').textContent = 'Đang trực tiếp'; if (token) send('resume', { token }); };
+  ws.onclose = () => { $('#dot').className = 'dot'; $('#conn').textContent = 'Mất kết nối, đang thử lại'; setTimeout(connect, Math.min(1000 * 2 ** retry++, 15000)); };
+  ws.onmessage = e => { const m = JSON.parse(e.data); (on[m.t] || (() => {}))(m); };
+}
+const on = {
+  room(m) {
+    if (m.id !== sel) return; auctions.set(m.id, m.a);
+    $('#rFeed').replaceChildren(); m.log.forEach(addFeed); $('#rFeed').scrollTop = $('#rFeed').scrollHeight; renderView(true);
+  },
+  feed(m) { if (m.id === sel) addFeed(m.e); },
+  typing(m) { if (m.id === sel) { typers[m.user] = Date.now(); updTyping(); } },
+  presence(m) {
+    if (m.id !== sel) return; const a = auctions.get(sel);
+    $('#rMembers').replaceChildren(h('span', { class: 'lbl' }, `${m.users.length + m.anon} người trong phòng: `),
+      ...m.users.map(u => h('span', { class: 'chip' + (a && u === a.seller ? ' seller' : '') }, '● ' + u)), m.anon ? h('span', { class: 'lbl' }, `+${m.anon} khách`) : null);
+  },
+  watch(m) { watch = new Set(m.list); render(); },
+  hello(m) { if (m.cats && !$('#catSel').options.length) m.cats.forEach(c => { $('#catSel').append(new Option(c, c)); $('#cat').append(new Option(c, c)); });
+    offset = m.now - Date.now(); auctions.clear(); m.auctions.forEach(a => auctions.set(a.id, a)); render();
+    if (sel) send('join', { id: sel }); else if (location.hash.length > 1 && auctions.has(location.hash.slice(1))) openView(location.hash.slice(1)); },
+  online(m) { $('#online').textContent = m.n + ' online'; },
+  auth(m) { user = m.user; token = m.token; watch = new Set(m.watch || []); localStorage.setItem('token', token); $('#dAuth').close(); userBox(); render(); if (sel) renderView(true); toast('Xin chào ' + user + '! Bạn có thể đặt giá ngay.'); },
+  auction(m) {
+    auctions.set(m.a.id, m.a); render(m.a.id); if (sel === m.a.id) renderView(true);
+    if (m.extended && sel === m.a.id) toast('Bid phút chót: phiên được cộng thêm 30 giây');
+    if (m.isNew && m.a.seller !== user) toast('Có phiên mới: ' + m.a.title);
+  },
+  outbid(m) { toast(`Bạn bị vượt giá ở “${m.title}”: ${money(m.amount)}. Vào đặt lại nếu muốn.`, true); },
+  won(m) { toast(`Chúc mừng! Bạn thắng “${m.title}” với ${money(m.amount)}`); },
+  sold(m) { toast(`“${m.title}” đã bán cho ${m.buyer}: ${money(m.amount)}`); },
+  unsold(m) { toast(`“${m.title}” kết thúc mà không ai đặt giá`); },
+  error(m) { toast(m.msg, true); },
+  mc(m) {
+    const old = $('#mcSay').textContent, first = old.startsWith('Chưa có gì');
+    $('#mcSay').textContent = m.text; $('#mcSrc').textContent = m.ai ? 'Gemini' : 'câu mẫu';
+    if (!first) { mcLog.unshift(old); mcLog.length = Math.min(mcLog.length, 2); $('#mcOld').textContent = 'Trước đó: ' + mcLog.join(' · '); }
+    if ($('#mcVoice').checked && 'speechSynthesis' in window) { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(m.text); u.lang = 'vi-VN'; speechSynthesis.speak(u); }
+  },
+};
+
+function userBox() {
+  const box = $('#userbox'); box.replaceChildren();
+  if (user) box.append(h('span', {}, 'Xin chào, ', h('b', {}, user)), h('button', { onclick() { send('logout', { token }); localStorage.removeItem('token'); token = user = null; watch = new Set(); userBox(); render(); if (sel) renderView(true); } }, 'Đăng xuất'));
+  else box.append(h('button', { class: 'pri', onclick: () => openAuth('login') }, 'Đăng nhập / Đăng ký'));
+  $('#intro').hidden = !!user || localStorage.getItem('hideIntro') === '1';
+}
+function openAuth(m) {
+  mode = m; const reg = m === 'register';
+  $('#authTitle').textContent = $('#authGo').textContent = reg ? 'Đăng ký tài khoản' : 'Đăng nhập';
+  $('#authSwitch').textContent = reg ? 'Đã có tài khoản? Đăng nhập' : 'Chưa có tài khoản? Đăng ký miễn phí';
+  if (!$('#dAuth').open) $('#dAuth').showModal();
+}
+const cur = a => a.bids.length ? a.bids[a.bids.length - 1].amount : a.startPrice;
+const isOver = a => a.status !== 'active' || a.endsAt <= nowS();
+function left(a) {
+  if (a.status === 'cancelled') return 'Đã huỷ';
+  const s = Math.max(0, Math.floor((a.endsAt - nowS()) / 1000));
+  if (a.status !== 'active' || !s) return 'Đã kết thúc';
+  const d = Math.floor(s / 86400), p = x => String(x).padStart(2, '0');
+  return 'Còn ' + (d ? d + ' ngày ' : '') + p(Math.floor(s % 86400 / 3600)) + ':' + p(Math.floor(s % 3600 / 60)) + ':' + p(s % 60);
+}
+function mine(a) {
+  if (!user) return null; const top = a.bids.at(-1);
+  if (a.seller === user) return ['own', 'Phiên của bạn'];
+  if (top && top.user === user) return ['lead', isOver(a) ? 'Bạn đã thắng' : 'Bạn đang dẫn đầu'];
+  if (a.bids.some(b => b.user === user)) return ['out', isOver(a) ? 'Bạn không thắng' : 'Bạn bị vượt giá'];
+  return null;
+}
+
+function render(flashId) {
+  const q = $('#q').value.toLowerCase(), f = $('#filter').value;
+  const list = [...auctions.values()].filter(a => (a.title + a.seller).toLowerCase().includes(q))
+    .filter(a => f === 'all' || (f === 'active' && !isOver(a)) || (f === 'ended' && isOver(a)) || (f === 'mine' && mine(a)) || (f === 'watch' && watch.has(a.id)))
+    .filter(a => !$('#cat').value || a.category === $('#cat').value);
+  list.sort({ soon: (a, b) => a.endsAt - b.endsAt, new: (a, b) => b.createdAt - a.createdAt, high: (a, b) => cur(b) - cur(a), hot: (a, b) => b.bidCount - a.bidCount }[$('#sort').value]);
+  const live = [...auctions.values()].filter(a => !isOver(a)).length;
+  $('#count').textContent = `${live} phiên đang diễn ra · hiển thị ${list.length} phiên`;
+  const grid = $('#grid'); grid.replaceChildren();
+  if (!list.length) grid.append(h('div', { class: 'empty' }, f === 'mine' && !user ? 'Đăng nhập để xem các phiên bạn tham gia.' : 'Chưa có phiên nào ở mục này. Bấm “+ Đăng sản phẩm đấu giá” để tạo phiên đầu tiên.'));
+  for (const a of list) {
+    const top = a.bids.at(-1), over = isOver(a), hot = !over && a.endsAt - nowS() < 60000, m = mine(a);
+    grid.append(h('article', { class: 'card' + (over ? ' over' : '') + (a.id === flashId ? ' flash' : ''), tabindex: 0, onclick: () => openView(a.id), onkeydown: e => e.key === 'Enter' && openView(a.id) },
+      h('div', { class: 'thumb' }, a.images[0] ? h('img', { src: a.images[0], alt: '', loading: 'lazy', onerror() { this.remove(); } }) : 'Chưa có ảnh',
+        h('span', { class: 'badge' + (over ? ' end' : hot ? ' hot' : '') }, over ? (a.status === 'cancelled' ? 'Đã huỷ' : 'Đã kết thúc') : hot ? 'Sắp kết thúc' : 'Đang diễn ra'), star(a)),
+      h('div', { class: 'body' },
+        h('h3', { title: a.title }, a.title),
+        h('div', {}, h('div', { class: 'lbl' }, top ? (over ? 'Giá chốt' : 'Giá hiện tại') : 'Giá khởi điểm'), h('div', { class: 'price num' }, money(cur(a)))),
+        a.buyNow && !over && cur(a) < a.buyNow ? h('div', { class: 'lbl' }, 'Mua ngay: ' + money(a.buyNow)) : null,
+        h('div', { class: 'meta' }, h('span', {}, top ? 'Dẫn đầu: ' + top.user : 'Chưa có ai trả giá'), h('span', { class: 'num' }, a.bidCount + ' lượt')),
+        h('div', { class: 'meta' }, h('span', {}, a.category + ' · ' + a.seller), h('span', { class: 'left num' + (hot ? ' hot' : ''), 'data-end': a.id }, left(a))),
+        m ? h('div', { class: 'me ' + m[0] }, m[1]) : null),
+      h('button', { class: 'cta' + (over ? '' : ' pri') }, over ? 'Xem lại phòng' : 'Vào phòng đấu giá')));
+  }
+}
+const star = a => h('button', { class: 'star' + (watch.has(a.id) ? ' on' : ''), title: 'Theo dõi phiên này', 'aria-label': 'Theo dõi', onclick(e) { e.stopPropagation(); user ? send('watch', { id: a.id }) : (toast('Đăng nhập để theo dõi', true), openAuth('login')); } }, '★');
+function gallery(a) {
+  if (!a.images.length) return null;
+  const main = h('img', { src: a.images[0], alt: '', style: 'width:100%;max-height:280px;object-fit:contain;background:var(--bg);border-radius:8px' });
+  return h('div', {}, main, a.images.length > 1 ? h('div', { class: 'thumbs', style: 'margin-top:6px' }, a.images.map(u => h('img', { src: u, alt: '', onclick: () => main.src = u }))) : null);
+}
+async function uploadImg(file) {
+  const bmp = await createImageBitmap(file), k = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.85));
+  const r = await fetch('/upload', { method: 'POST', headers: { 'x-token': token || '' }, body: blob });
+  const j = await r.json(); if (!r.ok) throw new Error(j.error); return j.url;
+}
+const prevImgs = () => $('#imgPrev').replaceChildren(...pending.map((u, i) => h('img', { src: u, alt: 'Ảnh ' + (i + 1), title: 'Bấm để xoá', onclick() { pending.splice(i, 1); prevImgs(); } })));
+$('#imgFiles').onchange = async e => {
+  for (const f of [...e.target.files].slice(0, 4 - pending.length)) {
+    uploading++; try { pending.push(await uploadImg(f)); prevImgs(); } catch (err) { toast(err.message || 'Không tải được ảnh này', true); } uploading--;
+  }
+  e.target.value = '';
+};
+const typers = {};
+function updTyping() { const n = Object.keys(typers).filter(u => Date.now() - typers[u] < 3000); $('#rTyping').textContent = n.length ? n.join(', ') + ' đang nhập…' : ''; }
+function feedEl(e) {
+  const a = auctions.get(sel), t = new Date(e.at).toLocaleTimeString('vi-VN');
+  if (e.k === 'bid') return h('div', { class: 'm bid', title: t }, `${e.user} trả ${money(e.amount)}` + (e.extended ? ' · +30 giây' : ''));
+  if (e.k === 'sys') return h('div', { class: 'm sys', title: t }, e.text);
+  if (e.k === 'mc') return h('div', { class: 'm mc', title: t }, h('b', {}, 'MC Búa Vàng: '), e.text);
+  return h('div', { class: 'm' + (e.user === user ? ' me' : ''), title: t }, h('b', {}, e.user + (a && e.user === a.seller ? ' (người bán)' : '') + ': '), e.text);
+}
+function addFeed(e) {
+  const f = $('#rFeed'), near = f.scrollHeight - f.scrollTop - f.clientHeight < 90;
+  f.append(feedEl(e)); while (f.children.length > 200) f.firstChild.remove();
+  if (near || e.user === user) f.scrollTop = f.scrollHeight;
+}
+function openView(id) {
+  sel = id; $('#rFeed').replaceChildren(); $('#rMembers').replaceChildren(); $('#rTyping').textContent = '';
+  renderView(false); history.replaceState(null, '', '#' + id);
+  send('join', { id }); if (!$('#dView').open) $('#dView').showModal();
+}
+function renderView(keep) {
+  const a = auctions.get(sel); if (!a) return;
+  const old = keep && $('#bidAmt') ? $('#bidAmt').value : '';
+  const top = a.bids.at(-1), min = top ? top.amount + a.increment : a.startPrice, over = isOver(a), m = mine(a);
+  const input = h('input', { id: 'bidAmt', type: 'number', min, step: a.increment, value: old || min, 'aria-label': 'Số tiền bạn trả' });
+  const go = h('button', { class: 'pri', onclick: () => send('bid', { id: a.id, amount: Number(input.value) }) }, 'Đặt giá');
+  const reason = over ? null : !user ? 'login' : a.seller === user ? 'Đây là phiên của bạn nên bạn không thể đặt giá.' : top && top.user === user ? 'Bạn đang dẫn đầu. Chờ người khác trả cao hơn thì bạn mới đặt tiếp được.' : null;
+  const can = !over && user && !reason;
+  input.disabled = go.disabled = !can;
+  $('#rTitle').textContent = a.title;
+  $('#rSub').replaceChildren(`${a.category} · Người bán: ${a.seller} · `, h('span', { class: 'left num', 'data-end': a.id }, left(a)));
+  $('#chatIn').placeholder = user ? 'Nhắn trong phòng… (gõ @mc để hỏi MC)' : 'Đăng nhập để chat';
+  const leftChildren = [
+    gallery(a),
+    a.desc ? h('p', {}, a.desc) : null,
+    h('div', { class: 'pbox' },
+      h('div', { class: 'lbl' }, over ? 'Giá chốt' : top ? 'Giá hiện tại, dẫn đầu: ' + top.user : 'Giá khởi điểm, chưa có ai trả'),
+      h('div', { class: 'price num flash' }, money(cur(a))),
+      m ? h('div', { class: 'me ' + m[0], style: 'display:inline-block;margin-top:6px' }, m[1]) : null),
+    over ? h('div', { class: 'notice' }, a.winner ? `Phiên đã kết thúc. Người thắng: ${a.winner}.` : 'Phiên đã kết thúc, không có người thắng.') : [
+      reason === 'login' ? h('div', { class: 'notice' }, 'Bạn cần đăng nhập để đặt giá và chat. ', h('button', { class: 'link', onclick: () => openAuth('login') }, 'Đăng nhập ngay')) : reason ? h('div', { class: 'notice' }, reason) : null,
+      h('label', { class: 'f' }, `Giá bạn muốn trả (tối thiểu ${money(min)}, mỗi lần tăng ít nhất ${money(a.increment)})`),
+      h('div', { class: 'row' }, input, go),
+      h('div', { class: 'row', style: 'margin-top:8px' }, [1, 3, 5].map(k => h('button', { disabled: !can, onclick() { input.value = min + a.increment * (k - 1); } }, k === 1 ? 'Giá tối thiểu' : '+' + (k - 1) + ' bước'))),
+      a.buyNow && cur(a) < a.buyNow && user && a.seller !== user ? h('button', { class: 'pri', style: 'width:100%;margin-top:10px', onclick() { if (confirm('Mua ngay với giá ' + money(a.buyNow) + '? Phiên sẽ kết thúc ngay.')) send('buynow', { id: a.id }); } }, 'Mua ngay ' + money(a.buyNow)) : null,
+      h('p', { class: 'rules' }, 'Quy tắc: hết giờ, người trả cao nhất thắng. Bid trong 30 giây cuối sẽ cộng thêm 30 giây.')],
+    h('h4', {}, `Lịch sử trả giá (${a.bidCount})`),
+    h('div', { class: 'hist' }, a.bids.length ? [...a.bids].reverse().map(b => h('div', {}, h('span', {}, b.user), h('span', { class: 'num' }, money(b.amount) + ' · ' + new Date(b.at).toLocaleTimeString('vi-VN')))) : h('div', {}, 'Chưa có lượt trả giá nào')),
+    a.seller === user && !over && !a.bids.length ? h('button', { style: 'margin-top:12px', onclick: () => send('cancel', { id: a.id }) }, 'Huỷ phiên này') : null
+  ].flat(Infinity).filter(x => x != null);
+  $('#rLeft').replaceChildren(...leftChildren);
+}
+
+$('#dView').addEventListener('close', () => { if (ws && ws.readyState === 1) ws.send('{"t":"leave"}'); sel = null; history.replaceState(null, '', location.pathname); });
+$('#btnCreate').onclick = () => user ? $('#dCreate').showModal() : (toast('Hãy đăng nhập để đăng sản phẩm', true), openAuth('login'));
+$('#introLogin').onclick = () => openAuth('register');
+$('#introClose').onclick = () => { localStorage.setItem('hideIntro', '1'); $('#intro').hidden = true; };
+$('#authClose').onclick = () => $('#dAuth').close();
+$('#authSwitch').onclick = () => openAuth(mode === 'login' ? 'register' : 'login');
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => b.closest('dialog').close());
+$('#fAuth').onsubmit = e => { e.preventDefault(); const f = new FormData(e.target); send(mode, { username: f.get('username'), password: f.get('password') }); };
+const endPreview = () => { const m = +$('#fCreate').minutes.value; $('#endPreview').textContent = m > 0 ? 'Phiên sẽ kết thúc lúc ' + new Date(nowS() + m * 60000).toLocaleString('vi-VN') + '.' : ''; };
+$('#fCreate').addEventListener('input', endPreview); $('#btnCreate').addEventListener('click', endPreview);
+$('#fCreate').onsubmit = e => {
+  e.preventDefault(); const f = Object.fromEntries(new FormData(e.target));
+  if (uploading) return toast('Ảnh đang tải lên, chờ một chút rồi đăng nhé', true);
+  send('create', { ...f, startPrice: +f.startPrice, increment: +f.increment, minutes: +f.minutes, buyNow: +f.buyNow || 0, images: pending });
+  pending = []; prevImgs(); $('#dCreate').close(); e.target.reset();
+};
+const askMc = q => user ? send('askmc', { q }) : (toast('Đăng nhập để hỏi MC', true), openAuth('login'));
+['Phiên nào sắp kết thúc?', 'Phiên nào giá cao nhất?', 'Đặt giá thế nào?'].forEach(q => $('#chips').append(h('button', { onclick: () => askMc(q) }, q)));
+$('#fMc').onsubmit = e => { e.preventDefault(); const q = $('#mcQ').value.trim(); if (q) { askMc(q); $('#mcQ').value = ''; } };
+$('#mcVoice').onchange = e => { if (!e.target.checked && window.speechSynthesis) speechSynthesis.cancel(); };
+['q', 'cat', 'filter', 'sort'].forEach(id => $('#' + id).addEventListener('input', () => render()));
+setInterval(() => document.querySelectorAll('[data-end]').forEach(el => {
+  const a = auctions.get(el.dataset.end); if (!a) return;
+  el.textContent = left(a); el.classList.toggle('hot', !isOver(a) && a.endsAt - nowS() < 60000);
+}), 1000);
+$('#rClose').onclick = () => $('#dView').close();
+$('#rCopy').onclick = () => { const u = location.origin + '/#' + sel; navigator.clipboard.writeText(u).then(() => toast('Đã sao chép link phòng'), () => toast(u)); };
+$('#fChat').onsubmit = e => { e.preventDefault(); const i = $('#chatIn'); if (!user) { toast('Đăng nhập để chat', true); return openAuth('login'); } if (i.value.trim()) { send('chat', { text: i.value }); i.value = ''; } };
+let lastTyp = 0;
+$('#chatIn').addEventListener('input', () => { if (user && ws.readyState === 1 && Date.now() - lastTyp > 2000) { lastTyp = Date.now(); ws.send('{"t":"typing"}'); } });
+setInterval(updTyping, 1000);
+userBox(); connect();
+</script>
+</body>
+</html>
