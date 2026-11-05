@@ -28,12 +28,14 @@ npm start          # http://localhost:3000   (đổi cổng: PORT=8080 npm start
 Cần Node.js >= 18.
 
 ### Bật MC AI
-Lấy khoá tại [Google AI Studio](https://aistudio.google.com/apikey), rồi:
-```bash
-GEMINI_API_KEY=your_key npm start
-# tuỳ chọn: GEMINI_MODEL=gemini-2.5-flash
+Lấy khoá tại [Google AI Studio](https://aistudio.google.com/apikey), sao chép `.env.example` thành `.env`, rồi điền khoá vào:
+```env
+GEMINI_API_KEY=your_key
+# Tuỳ chọn:
+GEMINI_MODEL=gemini-3.5-flash
 ```
-Khoá chỉ nằm ở server, không gửi xuống trình duyệt. Tin nhắn MC bị giới hạn tần suất (bid thường tối đa 1 lần / 5 giây) để tiết kiệm quota; lỗi hoặc quá thời gian 8 giây sẽ tự dùng câu mẫu. Mở 2 tab với 2 tài khoản khác nhau để thấy bid cập nhật tức thì.
+Khởi động lại server bằng `npm start` để áp dụng cấu hình. Tệp `.env` không được đưa lên GitHub.
+Khoá chỉ nằm ở server, không gửi xuống trình duyệt. Khi model chính lỗi hoặc quá tải, server tự lần lượt thử các model Gemini dự phòng; model lỗi được tạm nghỉ để tránh gọi lặp. Nếu tất cả model đều lỗi hoặc quá thời gian, MC dùng câu mẫu. Tin nhắn MC bị giới hạn tần suất (bid thường tối đa 1 lần / 5 giây) để tiết kiệm quota. Mở 2 tab với 2 tài khoản khác nhau để thấy bid cập nhật tức thì.
 
 ## Giao thức WebSocket
 Mọi tin nhắn là JSON có trường `t` (loại).

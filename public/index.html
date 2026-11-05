@@ -453,78 +453,221 @@ aside {
   box-shadow: var(--shadow-soft);
 }
 
+.mc-panel {
+  overflow: hidden;
+  border-color: rgba(217, 119, 6, 0.22);
+  background:
+    radial-gradient(ellipse at 100% 0, rgba(251, 191, 36, 0.18), transparent 42%),
+    linear-gradient(160deg, rgba(255,255,255,0.96), rgba(255,250,238,0.94));
+}
+
 @media (prefers-color-scheme: dark) {
   aside {
     background: linear-gradient(180deg, rgba(19, 27, 34, 0.9), rgba(16, 22, 29, 0.8));
   }
+
+  .mc-panel {
+    border-color: rgba(251, 191, 36, 0.24);
+    background:
+      radial-gradient(ellipse at 100% 0, rgba(217, 119, 6, 0.16), transparent 44%),
+      linear-gradient(160deg, rgba(32, 29, 23, 0.96), rgba(18, 26, 33, 0.94));
+  }
 }
 
-aside h2 {
+.mc-heading {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.mc-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(217, 119, 6, 0.18);
+  border-radius: 14px;
+  background: linear-gradient(145deg, #fff5d6, #f8d77d);
+  color: #70430b;
+  font-size: 21px;
+  box-shadow: inset 0 1px rgba(255,255,255,0.75), 0 7px 16px rgba(180, 83, 9, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  .mc-mark {
+    border-color: rgba(251, 191, 36, 0.25);
+    background: linear-gradient(145deg, #6b4d18, #3c301b);
+    color: #fde68a;
+    box-shadow: inset 0 1px rgba(255,255,255,0.08), 0 7px 16px rgba(0,0,0,0.2);
+  }
+}
+
+.mc-heading h2 {
   margin: 0;
-  font-size: 1.3rem;
+  font-family: 'Merriweather', Georgia, serif;
+  font-size: 1.16rem;
+  line-height: 1.35;
+}
+
+.mc-title-wrap {
+  min-width: 0;
+  flex: 1;
+}
+
+.mc-eyebrow {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--warn);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.mc-panel .src {
+  float: none;
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  margin-top: 5px;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(148,163,184,0.08);
+  font-size: 10px;
+  letter-spacing: 0.04em;
 }
 
 aside .sub {
-  margin: 6px 0 12px;
+  margin: 12px 0 14px;
   color: var(--mute);
   font-size: 13px;
 }
 
 .say {
-  min-height: 76px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  border-left: 4px solid var(--acc);
-  background: linear-gradient(135deg, rgba(20,184,166,0.08), rgba(255,255,255,0.75));
-  font-style: italic;
-  font-size: 1rem;
-  line-height: 1.5;
+  position: relative;
+  min-height: 104px;
+  padding: 17px 16px 16px 18px;
+  border: 1px solid rgba(217, 119, 6, 0.16);
+  border-left: 4px solid #d97706;
+  border-radius: 8px 16px 16px 8px;
+  background: rgba(255,255,255,0.68);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.7;
+  box-shadow: 0 8px 20px rgba(120, 53, 15, 0.06);
+  overflow-wrap: anywhere;
 }
 
 @media (prefers-color-scheme: dark) {
   .say {
-    background: linear-gradient(135deg, rgba(20,184,166,0.12), rgba(15, 23, 32, 0.6));
+    border-color: rgba(251, 191, 36, 0.16);
+    border-left-color: #fbbf24;
+    background: rgba(12, 18, 24, 0.62);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
   }
 }
 
+.say::before {
+  content: 'LỜI MC';
+  display: block;
+  margin-bottom: 7px;
+  color: var(--warn);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
 .old {
-  margin: 10px 0 0;
+  margin: 11px 0 0;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: rgba(148,163,184,0.08);
   color: var(--mute);
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.old:empty {
+  display: none;
 }
 
 .chips {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 12px 0 10px;
+  margin: 14px 0 12px;
 }
 
 .chips button {
   border-radius: 999px;
-  padding: 5px 10px;
-  font-size: 12px;
-  background: rgba(148,163,184,0.09);
+  padding: 6px 10px;
+  border-color: rgba(217, 119, 6, 0.15);
+  background: rgba(255,255,255,0.48);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.chips button:hover {
+  border-color: rgba(217, 119, 6, 0.42);
+  background: rgba(251, 191, 36, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  .chips button { background: rgba(12, 18, 24, 0.52); }
+  .chips button:hover { background: rgba(251, 191, 36, 0.1); }
 }
 
 aside form {
   display: flex;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 7px;
+  margin-top: 10px;
 }
 
-aside form input { flex: 1; width: auto; }
+aside form input {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  border-radius: 11px;
+  background: rgba(255,255,255,0.7);
+}
+
+.mc-ask button {
+  min-width: 68px;
+  border-color: transparent;
+  background: #b45309;
+  color: #fff;
+}
+
+.mc-ask button:hover {
+  background: #92400e;
+}
+
+@media (prefers-color-scheme: dark) {
+  aside form input { background: rgba(12, 18, 24, 0.72); }
+  .mc-ask button { background: #d97706; color: #1c1305; }
+}
 
 aside label {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 12px;
   color: var(--mute);
   font-size: 13px;
+  cursor: pointer;
 }
 
-aside label input { width: auto; }
+aside label input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #b45309;
+}
 
 .src {
   float: right;
@@ -837,13 +980,20 @@ dialog.room[open] { display: flex; flex-direction: column; }
       <div class="grid" id="grid"></div>
     </section>
 
-    <aside aria-label="MC đấu giá AI">
-      <h2>MC AI “Búa Vàng” <span class="src" id="mcSrc"></span></h2>
-      <p class="sub">Bình luận mỗi khi có bid, đếm ngược và gõ búa. Bạn cũng có thể hỏi MC.</p>
+    <aside class="mc-panel" aria-label="MC đấu giá AI">
+      <div class="mc-heading">
+        <span class="mc-mark" aria-hidden="true">⚒</span>
+        <div class="mc-title-wrap">
+          <span class="mc-eyebrow">Trợ lý phiên đấu</span>
+          <h2>MC “Búa Vàng”</h2>
+          <span class="src" id="mcSrc"></span>
+        </div>
+      </div>
+      <p class="sub">Cập nhật diễn biến, bình luận các lượt trả giá và giải đáp câu hỏi của bạn.</p>
       <div class="say" id="mcSay" aria-live="polite">Chưa có gì để bình luận. MC sẽ lên tiếng khi có phiên mới.</div>
       <div class="old" id="mcOld"></div>
       <div class="chips" id="chips"></div>
-      <form id="fMc"><input id="mcQ" maxlength="200" placeholder="Hỏi MC…" aria-label="Hỏi MC"><button>Hỏi</button></form>
+      <form id="fMc" class="mc-ask"><input id="mcQ" maxlength="200" placeholder="Hỏi MC về phiên đấu…" aria-label="Hỏi MC"><button>Gửi hỏi</button></form>
       <label><input type="checkbox" id="mcVoice"> Đọc to lời MC</label>
     </aside>
   </div>
